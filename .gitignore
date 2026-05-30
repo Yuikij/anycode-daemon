@@ -1,0 +1,11 @@
+# Release artifacts
+dist/
+
+# Compiled binaries (shipped via GitHub Releases, not committed)
+daemon
+daemon-linux
+daemon.exe
+anycode-daemon
+anycode-daemon-*
+anycode-daemon.exe
+*.exe

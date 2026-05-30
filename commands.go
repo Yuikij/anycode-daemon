@@ -1,0 +1,191 @@
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"runtime"
+	"strings"
+	"time"
+)
+
+// apiRequest performs a JSON HTTP request against the relay's HTTP API.
+func apiRequest(relayURL, method, path string, body interface{}, session string) (map[string]interface{}, int, error) {
+	var reader io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return nil, 0, err
+		}
+		reader = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequest(method, strings.TrimRight(relayURL, "/")+path, reader)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if session != "" {
+		req.Header.Set("Authorization", "Bearer "+session)
+	}
+	client := &http.Client{Timeout: 20 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	var parsed map[string]interface{}
+	_ = json.Unmarshal(data, &parsed)
+	return parsed, resp.StatusCode, nil
+}
+
+func prompt(label string) string {
+	fmt.Print(label)
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	return strings.TrimSpace(line)
+}
+
+// cmdLogin authenticates the *account* (anycode login) and stores a session
+// token locally. This is the credential used to call the devices API.
+func cmdLogin(args []string) {
+	fs := flag.NewFlagSet("login", flag.ExitOnError)
+	relay := fs.String("relay", "", "Relay/API base URL")
+	email := fs.String("email", "", "Account email")
+	password := fs.String("password", "", "Account password")
+	_ = fs.Parse(args)
+
+	cfg := LoadConfig()
+	if *relay != "" {
+		cfg.RelayURL = *relay
+	}
+	em := *email
+	if em == "" {
+		em = prompt("Email: ")
+	}
+	pw := *password
+	if pw == "" {
+		pw = prompt("Password: ")
+	}
+
+	parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/login", map[string]string{
+		"email": em, "password": pw,
+	}, "")
+	if err != nil {
+		fmt.Printf("Login failed: %v\n", err)
+		os.Exit(1)
+	}
+	if status != 200 {
+		fmt.Printf("Login failed: %v\n", apiError(parsed, status))
+		os.Exit(1)
+	}
+	token, _ := parsed["token"].(string)
+	if token == "" {
+		fmt.Println("Login failed: no token returned")
+		os.Exit(1)
+	}
+	cfg.Session = token
+	cfg.UserEmail = em
+	if err := cfg.Save(); err != nil {
+		fmt.Printf("Could not save config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Logged in as %s\n", em)
+	fmt.Println("Next: run `anycode register` to register this machine, then `anycode start`.")
+}
+
+// cmdRegister registers *this machine* as a device under the account.
+//   - With --token: bind directly using a connect-token copied from the web
+//     console (no login needed).
+//   - Otherwise: requires a prior `anycode login`; calls the devices API to
+//     create a device and obtain its connect-token.
+func cmdRegister(args []string) {
+	fs := flag.NewFlagSet("register", flag.ExitOnError)
+	relay := fs.String("relay", "", "Relay/API base URL")
+	token := fs.String("token", "", "Device connect-token from the web console")
+	name := fs.String("name", "", "Device name")
+	_ = fs.Parse(args)
+
+	cfg := LoadConfig()
+	if *relay != "" {
+		cfg.RelayURL = *relay
+	}
+	devName := *name
+	if devName == "" {
+		devName, _ = os.Hostname()
+		if devName == "" {
+			devName = "我的开发机"
+		}
+	}
+
+	if *token != "" {
+		cfg.DeviceToken = *token
+		cfg.DeviceName = devName
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Device bound with token. Run `anycode start` to go online.\n")
+		return
+	}
+
+	if cfg.Session == "" {
+		fmt.Println("Not logged in. Run `anycode login` first, or use `anycode register --token <token>`.")
+		os.Exit(1)
+	}
+
+	parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/devices", map[string]string{
+		"name": devName, "platform": runtime.GOOS,
+	}, cfg.Session)
+	if err != nil {
+		fmt.Printf("Register failed: %v\n", err)
+		os.Exit(1)
+	}
+	if status != 200 {
+		fmt.Printf("Register failed: %v\n", apiError(parsed, status))
+		os.Exit(1)
+	}
+
+	deviceToken, _ := parsed["token"].(string)
+	if dev, ok := parsed["device"].(map[string]interface{}); ok {
+		if id, ok := dev["id"].(string); ok {
+			cfg.DeviceID = id
+		}
+	}
+	if deviceToken == "" {
+		fmt.Println("Register failed: no device token returned")
+		os.Exit(1)
+	}
+	cfg.DeviceToken = deviceToken
+	cfg.DeviceName = devName
+	if err := cfg.Save(); err != nil {
+		fmt.Printf("Could not save config: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Registered device %q. Run `anycode start` to go online.\n", devName)
+}
+
+func cmdLogout() {
+	cfg := LoadConfig()
+	if cfg.Session != "" {
+		_, _, _ = apiRequest(cfg.RelayURL, "POST", "/api/auth/logout", nil, cfg.Session)
+	}
+	cfg.Session = ""
+	cfg.UserEmail = ""
+	_ = cfg.Save()
+	fmt.Println("Logged out.")
+}
+
+func apiError(parsed map[string]interface{}, status int) string {
+	if parsed != nil {
+		if msg, ok := parsed["error"].(string); ok && msg != "" {
+			return msg
+		}
+	}
+	return fmt.Sprintf("HTTP %d", status)
+}
