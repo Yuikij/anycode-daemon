@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.5.1"
+const Version = "0.5.2"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -50,10 +50,33 @@ func main() {
 		case "version", "--version", "-version", "-v":
 			fmt.Println(Version)
 			return
+		case "help", "-h", "--help":
+			printGlobalUsage()
+			return
 		}
 	}
 	// Backward compatible: `anycode [-port=...] [-root=...]` behaves like start.
 	cmdStart(os.Args[1:])
+}
+
+func printGlobalUsage() {
+	fmt.Printf(`AnyCode Daemon v%s
+
+Usage: anycode <command> [options]
+
+Commands:
+  login      Authenticate your account and device via Web or Email
+  register   Bind this machine to your AnyCode account
+  start      Run the daemon (foreground or -d for background)
+  status     Show daemon status (PID, Logs, Relay status)
+  stop       Stop the background daemon
+  restart    Restart the background daemon
+  log, logs  Tail the daemon logs
+  update     Self-update to the latest version
+  version    Print version information
+
+Run 'anycode <command> -h' for more details on a specific command.
+`, Version)
 }
 
 func cmdStart(args []string) {

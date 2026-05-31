@@ -174,50 +174,77 @@ func cmdRegister(args []string) {
 	}
 
 	if *token != "" {
+		// Fetch device info using the token to get the real device ID
+		parsed, status, err := apiRequest(cfg.RelayURL, "GET", "/api/devices/me", nil, *token)
+		if err == nil && status == 200 {
+			if dev, ok := parsed["device"].(map[string]interface{}); ok {
+				if id, ok := dev["id"].(string); ok {
+					cfg.DeviceID = id
+				}
+				if n, ok := dev["name"].(string); ok && n != "" {
+					devName = n // override local default with cloud name
+				}
+			}
+		}
+
 		cfg.DeviceToken = *token
 		cfg.DeviceName = devName
 		if err := cfg.Save(); err != nil {
 			fmt.Printf("Could not save config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Printf("Device bound with token. Run `anycode start` to go online.\n")
-		return
-	}
-
-	if cfg.Session == "" {
-		fmt.Println("Not logged in. Run `anycode login` first, or use `anycode register --token <token>`.")
-		os.Exit(1)
-	}
-
-	parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/devices", map[string]string{
-		"name": devName, "platform": runtime.GOOS,
-	}, cfg.Session)
-	if err != nil {
-		fmt.Printf("Register failed: %v\n", err)
-		os.Exit(1)
-	}
-	if status != 200 {
-		fmt.Printf("Register failed: %v\n", apiError(parsed, status))
-		os.Exit(1)
-	}
-
-	deviceToken, _ := parsed["token"].(string)
-	if dev, ok := parsed["device"].(map[string]interface{}); ok {
-		if id, ok := dev["id"].(string); ok {
-			cfg.DeviceID = id
+		fmt.Printf("Device bound with token (DeviceID: %s).\n", cfg.DeviceID)
+	} else {
+		if cfg.Session == "" {
+			fmt.Println("Not logged in. Run `anycode login` first, or use `anycode register --token <token>`.")
+			os.Exit(1)
 		}
+
+		parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/devices", map[string]string{
+			"name": devName, "platform": runtime.GOOS,
+		}, cfg.Session)
+		if err != nil {
+			fmt.Printf("Register failed: %v\n", err)
+			os.Exit(1)
+		}
+		if status != 200 {
+			fmt.Printf("Register failed: %v\n", apiError(parsed, status))
+			os.Exit(1)
+		}
+
+		deviceToken, _ := parsed["token"].(string)
+		if dev, ok := parsed["device"].(map[string]interface{}); ok {
+			if id, ok := dev["id"].(string); ok {
+				cfg.DeviceID = id
+			}
+		}
+		if deviceToken == "" {
+			fmt.Println("Register failed: no device token returned")
+			os.Exit(1)
+		}
+		cfg.DeviceToken = deviceToken
+		cfg.DeviceName = devName
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Registered device %q.\n", devName)
 	}
-	if deviceToken == "" {
-		fmt.Println("Register failed: no device token returned")
-		os.Exit(1)
+
+	// Auto-restart if the daemon is running in the background
+	if pidFileExists() {
+		fmt.Println("Detected background daemon running. Automatically restarting to apply new credentials...")
+		cmdRestart([]string{})
+	} else {
+		fmt.Println("Run `anycode start` to go online.")
 	}
-	cfg.DeviceToken = deviceToken
-	cfg.DeviceName = devName
-	if err := cfg.Save(); err != nil {
-		fmt.Printf("Could not save config: %v\n", err)
-		os.Exit(1)
+}
+
+func pidFileExists() bool {
+	if _, err := os.Stat(pidFilePath()); err == nil {
+		return true
 	}
-	fmt.Printf("Registered device %q. Run `anycode start` to go online.\n", devName)
+	return false
 }
 
 func cmdLogout() {

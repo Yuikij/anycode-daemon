@@ -36,6 +36,24 @@ func cmdUpdate() {
 	}
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
+	// Determine current executable path early to check for npm install
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Printf("Error finding executable path: %v\n", err)
+		os.Exit(1)
+	}
+	if resolvedPath, err := filepath.EvalSymlinks(exePath); err == nil {
+		exePath = resolvedPath
+	}
+
+	if strings.Contains(exePath, "node_modules") {
+		fmt.Printf("\n⚠️ 检测到你可能是通过 npm 安装的 (路径包含 node_modules)。\n")
+		fmt.Printf("   请勿使用 anycode update，以免破坏 npm 的包结构。\n")
+		fmt.Printf("   请使用以下命令进行更新：\n\n")
+		fmt.Printf("   npm update -g anycode-daemon\n\n")
+		os.Exit(1)
+	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Error checking for updates: %v\n", err)
@@ -72,16 +90,6 @@ func cmdUpdate() {
 	downloadURL := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", repo, assetName)
 
 	// 3. Download the new binary
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Printf("Error finding executable path: %v\n", err)
-		os.Exit(1)
-	}
-	// On symlinks, get the actual path
-	if resolvedPath, err := filepath.EvalSymlinks(exePath); err == nil {
-		exePath = resolvedPath
-	}
-
 	tmpPath := exePath + ".tmp"
 	oldPath := exePath + ".old"
 
