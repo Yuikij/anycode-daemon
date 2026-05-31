@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.4.0"
+const Version = "0.5.0"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -32,6 +32,18 @@ func main() {
 		case "start":
 			cmdStart(os.Args[2:])
 			return
+		case "stop":
+			cmdStop()
+			return
+		case "restart":
+			cmdRestart(os.Args[2:])
+			return
+		case "status":
+			cmdStatus()
+			return
+		case "log", "logs":
+			cmdLog(os.Args[2:])
+			return
 		case "version", "--version", "-version", "-v":
 			fmt.Println(Version)
 			return
@@ -48,11 +60,30 @@ func cmdStart(args []string) {
 	tokenFlag := fs.String("token", "", "Auth token (auto-generated if empty)")
 	noRelay := fs.Bool("no-relay", false, "Do not connect to the cloud relay even if registered")
 	showVersion := fs.Bool("version", false, "Print version and exit")
+	background := fs.Bool("d", false, "Run as a detached background daemon")
+	backgroundLong := fs.Bool("daemon", false, "Run as a detached background daemon")
 	_ = fs.Parse(args)
 
 	if *showVersion {
 		fmt.Println(Version)
 		os.Exit(0)
+	}
+
+	// Background mode: re-exec ourselves detached, write a PID file, and exit.
+	// The child sets ANYCODE_DAEMONIZED=1 so it skips this branch and runs
+	// the server loop in the foreground (with output going to the log file).
+	daemonized := os.Getenv("ANYCODE_DAEMONIZED") == "1"
+	if (*background || *backgroundLong) && !daemonized {
+		pid, err := daemonize(args)
+		if err != nil {
+			fmt.Printf("Failed to start daemon in background: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("AnyCode daemon started in background (pid %d).\n", pid)
+		fmt.Printf("Status: anycode status\n")
+		fmt.Printf("Logs:   anycode log -f   (%s)\n", logFilePath())
+		fmt.Printf("Stop:   anycode stop\n")
+		return
 	}
 
 	projectRoot := *root
@@ -98,6 +129,13 @@ func cmdStart(args []string) {
 
 `, Version, projectRoot, *port, token, relayLine, bestIP, *port, *port)
 
+	// When running as the detached background child, own the PID file so
+	// `anycode status/stop/restart` can find us, and clean it up on exit.
+	if daemonized {
+		_ = writePidFile(os.Getpid())
+		defer removePidFile()
+	}
+
 	server := NewServer(*port, projectRoot, token)
 
 	if relayEnabled {
@@ -112,6 +150,9 @@ func cmdStart(args []string) {
 		server.codex.Stop()
 		server.gemini.Stop()
 		server.claude.Stop()
+		if daemonized {
+			removePidFile()
+		}
 		os.Exit(0)
 	}()
 

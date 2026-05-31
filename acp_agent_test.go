@@ -10,7 +10,10 @@ func TestChooseAcpPermissionOption(t *testing.T) {
 		},
 	}
 
-	optionId := chooseAcpPermissionOption(params)
+	optionId, ok := pickAcpAllowOption(params)
+	if !ok {
+		t.Fatalf("expected an allow option to be picked")
+	}
 	if optionId != "allow-once" {
 		t.Fatalf("expected allow-once, got %q", optionId)
 	}

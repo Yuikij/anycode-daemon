@@ -53,6 +53,15 @@ type Server struct {
 
 	mu      sync.RWMutex
 	clients map[*wsClient]struct{}
+
+	// Codex notification replay buffer. Codex (unlike Claude) has no daemon
+	// session store, so streaming deltas were lost when a client disconnected
+	// mid-turn. We keep the current turn's events so a reconnecting client can
+	// replay them via `codex.taskStatus` and rebuild the in-progress UI.
+	codexMu          sync.Mutex
+	codexEvents      []cachedNotification
+	codexTurnRunning bool
+	codexThreadID    string
 }
 
 var upgrader = websocket.Upgrader{
@@ -76,6 +85,7 @@ func NewServer(port int, projectRoot, token string) *Server {
 	s.cron.Start(s.projectRoot)
 
 	s.codex.OnNotification = func(method string, params interface{}) {
+		s.recordCodexEvent(method, params)
 		s.broadcast(makeNotification("codex."+method, params))
 	}
 
@@ -110,6 +120,54 @@ func (s *Server) broadcast(msg interface{}) {
 			c.send(data)
 		}
 	}
+}
+
+// recordCodexEvent buffers a codex notification for replay on reconnect and
+// tracks whether a turn is currently running. The buffer is reset at the start
+// of each turn so it only holds the in-progress turn's events.
+func (s *Server) recordCodexEvent(method string, params interface{}) {
+	s.codexMu.Lock()
+	defer s.codexMu.Unlock()
+
+	switch method {
+	case "turn/started":
+		s.codexTurnRunning = true
+		s.codexEvents = s.codexEvents[:0]
+	case "turn/completed", "turn/failed", "turn/aborted", "turn/interrupted":
+		s.codexTurnRunning = false
+	case "thread/started":
+		if id := extractThreadID(params); id != "" {
+			s.codexThreadID = id
+		}
+	}
+	if id := extractThreadID(params); id != "" {
+		s.codexThreadID = id
+	}
+
+	s.codexEvents = append(s.codexEvents, cachedNotification{
+		Method: method, Params: params, Time: time.Now().UnixMilli(),
+	})
+	if len(s.codexEvents) > maxCachedNotifications {
+		s.codexEvents = s.codexEvents[len(s.codexEvents)-maxCachedNotifications:]
+	}
+}
+
+// extractThreadID best-effort pulls a thread id out of a codex notification's
+// params (either top-level `threadId` or nested `thread.id`).
+func extractThreadID(params interface{}) string {
+	m, ok := params.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if id, ok := m["threadId"].(string); ok && id != "" {
+		return id
+	}
+	if th, ok := m["thread"].(map[string]interface{}); ok {
+		if id, ok := th["id"].(string); ok {
+			return id
+		}
+	}
+	return ""
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -187,6 +245,22 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 			continue
 		}
 
+		// share.read is allowed pre-auth: it only returns HTML the user
+		// explicitly shared, keyed by an unguessable id. The relay calls this
+		// to serve a public share link by fetching live from this daemon.
+		if req.Method == "share.read" {
+			p := getParams(req.Params)
+			result, herr := s.readShare(getParamString(p, "id"))
+			var reply []byte
+			if herr != nil {
+				reply, _ = json.Marshal(makeError(id, -32000, herr.Error()))
+			} else {
+				reply, _ = json.Marshal(makeResponse(id, result))
+			}
+			client.send(reply)
+			continue
+		}
+
 		// Check auth
 		s.mu.RLock()
 		authed := client.authed
@@ -229,16 +303,34 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		if html == "" {
 			return nil, fmt.Errorf("html content is required")
 		}
-		b := make([]byte, 4)
+
+		// The HTML stays on THIS machine — we never upload it to the cloud.
+		b := make([]byte, 6)
 		rand.Read(b)
 		id := hex.EncodeToString(b)
-		sharesDir := filepath.Join(s.projectRoot, ".anycode", "shares")
-		_ = os.MkdirAll(sharesDir, 0755)
-		sharePath := filepath.Join(sharesDir, id+".html")
-		if err := os.WriteFile(sharePath, []byte(html), 0644); err != nil {
+		dir := sharesDir()
+		_ = os.MkdirAll(dir, 0755)
+		if err := os.WriteFile(filepath.Join(dir, id+".html"), []byte(html), 0644); err != nil {
 			return nil, fmt.Errorf("failed to save share: %w", err)
 		}
-		urlStr := fmt.Sprintf("http://%s/share/%s", client.host, id)
+
+		// Public link on the app domain. The relay routes
+		// /share/<deviceId>/<id> to this device and fetches the HTML live over
+		// the existing agent connection (see `share.read`), so the cloud only
+		// forwards bytes and stores nothing.
+		cfg := LoadConfig()
+		if cfg.DeviceID != "" && cfg.RelayURL != "" {
+			urlStr := fmt.Sprintf("%s/share/%s/%s", strings.TrimRight(cfg.RelayURL, "/"), cfg.DeviceID, id)
+			return map[string]interface{}{"ok": true, "id": id, "url": urlStr}, nil
+		}
+
+		// LAN/direct fallback: served by this daemon's own HTTP server. Avoid
+		// the unusable "relay" host label by falling back to localhost.
+		host := client.host
+		if host == "" || host == "relay" {
+			host = fmt.Sprintf("localhost:%d", s.port)
+		}
+		urlStr := fmt.Sprintf("http://%s/share/%s", host, id)
 		return map[string]interface{}{"ok": true, "id": id, "url": urlStr}, nil
 
 	// ── Browse any directory (absolute paths) ──
@@ -355,13 +447,36 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 
 	case "codex.stop":
 		s.codex.Stop()
+		s.codexMu.Lock()
+		s.codexEvents = s.codexEvents[:0]
+		s.codexTurnRunning = false
+		s.codexMu.Unlock()
 		return map[string]bool{"ok": true}, nil
 
 	case "codex.status":
 		return map[string]bool{"running": s.codex.IsRunning()}, nil
 
+	// Replay buffer for reconnecting clients: returns whether a turn is in
+	// progress plus the current turn's buffered streaming events so the UI can
+	// be rebuilt after a disconnect without waiting for the next delta.
+	case "codex.taskStatus":
+		s.codexMu.Lock()
+		events := make([]cachedNotification, len(s.codexEvents))
+		copy(events, s.codexEvents)
+		running := s.codexTurnRunning
+		threadID := s.codexThreadID
+		s.codexMu.Unlock()
+		return map[string]interface{}{
+			"ok":           true,
+			"running":      running,
+			"codexRunning": s.codex.IsRunning(),
+			"threadId":     threadID,
+			"recentEvents": events,
+		}, nil
+
 	case "codex.threadList", "codex.threadRead", "codex.threadStart",
 		"codex.threadResume", "codex.threadArchive", "codex.threadRollback",
+		"codex.threadCompact",
 		"codex.turnStart", "codex.turnSteer", "codex.turnInterrupt",
 		"codex.modelList", "codex.configRead":
 		rpcMethod := strings.TrimPrefix(req.Method, "codex.")
@@ -714,6 +829,7 @@ func codexMethodMap(method string) string {
 		"codex.threadResume":   "thread/resume",
 		"codex.threadArchive":  "thread/archive",
 		"codex.threadRollback": "thread/rollback",
+		"codex.threadCompact":  "thread/compact",
 		"codex.turnStart":      "turn/start",
 		"codex.turnSteer":      "turn/steer",
 		"codex.turnInterrupt":  "turn/interrupt",
@@ -831,14 +947,37 @@ func (s *Server) ListenAndServe() error {
 	return http.ListenAndServe(addr, mux)
 }
 
+// sharesDir is a stable, project-independent location for share HTML so a
+// share survives `project.open` switches.
+func sharesDir() string {
+	return filepath.Join(configDir(), "shares")
+}
+
+// readShare returns the stored HTML for a share id. Used both by the local
+// HTTP handler and by the relay (via the pre-auth `share.read` RPC) so a
+// public share link can be served live from this machine.
+func (s *Server) readShare(id string) (interface{}, error) {
+	if id == "" || strings.ContainsAny(id, `/\.`) {
+		return nil, fmt.Errorf("invalid share id")
+	}
+	content, err := os.ReadFile(filepath.Join(sharesDir(), id+".html"))
+	if err != nil {
+		return nil, fmt.Errorf("share not found")
+	}
+	return map[string]interface{}{"html": string(content)}, nil
+}
+
 func (s *Server) handleShare(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/share/")
-	if id == "" || strings.Contains(id, "/") || strings.Contains(id, "\\") || strings.Contains(id, ".") {
+	// Accept both /share/<id> and /share/<deviceId>/<id> — the id is the last
+	// path segment.
+	trimmed := strings.Trim(strings.TrimPrefix(r.URL.Path, "/share/"), "/")
+	segs := strings.Split(trimmed, "/")
+	id := segs[len(segs)-1]
+	if id == "" || strings.Contains(id, ".") {
 		http.NotFound(w, r)
 		return
 	}
-	sharePath := filepath.Join(s.projectRoot, ".anycode", "shares", id+".html")
-	content, err := os.ReadFile(sharePath)
+	content, err := os.ReadFile(filepath.Join(sharesDir(), id+".html"))
 	if err != nil {
 		http.NotFound(w, r)
 		return

@@ -270,8 +270,8 @@ func (c *ClaudeBridge) Start(cwd string) error {
 		c.agent.SetCwd(cwd)
 	}
 
-	if !c.agent.CheckAvailable() {
-		return fmt.Errorf("%s not found in PATH; install with `npm install -g @zed-industries/claude-code-acp`", claudeAcpCommand())
+	if !ensureClaudeAcp(c.agent.CheckAvailable) {
+		return fmt.Errorf("%s not found in PATH; install with `npm install -g %s`", claudeAcpCommand(), claudeAcpPackage)
 	}
 	return c.agent.Start()
 }
@@ -334,6 +334,9 @@ func (c *ClaudeBridge) SetConfig(model, effort, mode string) {
 // so the iOS UI mirrors the previous stream-json behavior).
 func (c *ClaudeBridge) Prompt(text string, images []string) error {
 	if !c.agent.IsRunning() {
+		if !ensureClaudeAcp(c.agent.CheckAvailable) {
+			return fmt.Errorf("%s not found in PATH; install with `npm install -g %s`", claudeAcpCommand(), claudeAcpPackage)
+		}
 		if err := c.agent.Start(); err != nil {
 			return fmt.Errorf("start claude-code-acp: %w", err)
 		}
