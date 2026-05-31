@@ -475,7 +475,8 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		}, nil
 
 	case "codex.threadList", "codex.threadRead", "codex.threadStart",
-		"codex.threadResume", "codex.threadArchive", "codex.threadRollback",
+		"codex.threadResume", "codex.threadArchive", "codex.threadUnarchive",
+		"codex.threadRename", "codex.threadRollback",
 		"codex.threadCompact",
 		"codex.turnStart", "codex.turnSteer", "codex.turnInterrupt",
 		"codex.modelList", "codex.configRead":
@@ -698,6 +699,29 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		s.claude.ClearSession()
 		return map[string]bool{"ok": true}, nil
 
+	case "claude.sessionDelete":
+		sessionId := getParamString(params, "sessionId")
+		cwd := getParamString(params, "cwd")
+		if sessionId == "" {
+			return nil, fmt.Errorf("sessionId is required")
+		}
+		if err := s.claude.DeleteSession(sessionId, cwd); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+
+	case "claude.sessionRename":
+		sessionId := getParamString(params, "sessionId")
+		title := getParamString(params, "title")
+		cwd := getParamString(params, "cwd")
+		if sessionId == "" {
+			return nil, fmt.Errorf("sessionId is required")
+		}
+		if err := s.claude.RenameSession(sessionId, title, cwd); err != nil {
+			return nil, err
+		}
+		return map[string]bool{"ok": true}, nil
+
 	case "claude.setConfig":
 		model := getParamString(params, "model")
 		effort := getParamString(params, "effort")
@@ -823,18 +847,20 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 
 func codexMethodMap(method string) string {
 	m := map[string]string{
-		"codex.threadList":     "thread/list",
-		"codex.threadRead":     "thread/read",
-		"codex.threadStart":    "thread/start",
-		"codex.threadResume":   "thread/resume",
-		"codex.threadArchive":  "thread/archive",
-		"codex.threadRollback": "thread/rollback",
-		"codex.threadCompact":  "thread/compact",
-		"codex.turnStart":      "turn/start",
-		"codex.turnSteer":      "turn/steer",
-		"codex.turnInterrupt":  "turn/interrupt",
-		"codex.modelList":      "model/list",
-		"codex.configRead":     "config/read",
+		"codex.threadList":      "thread/list",
+		"codex.threadRead":      "thread/read",
+		"codex.threadStart":     "thread/start",
+		"codex.threadResume":    "thread/resume",
+		"codex.threadArchive":   "thread/archive",
+		"codex.threadUnarchive": "thread/unarchive",
+		"codex.threadRename":    "thread/name/set",
+		"codex.threadRollback":  "thread/rollback",
+		"codex.threadCompact":   "thread/compact",
+		"codex.turnStart":       "turn/start",
+		"codex.turnSteer":       "turn/steer",
+		"codex.turnInterrupt":   "turn/interrupt",
+		"codex.modelList":       "model/list",
+		"codex.configRead":      "config/read",
 	}
 	if v, ok := m[method]; ok {
 		return v

@@ -385,7 +385,7 @@ func (c *ClaudeBridge) Prompt(text string, images []string) error {
 	// Run the prompt in the background so the WS RPC returns promptly
 	// while the ACP agent streams session/update notifications.
 	go func() {
-		_, err := c.agent.Prompt(sid, text, images)
+		result, err := c.agent.Prompt(sid, text, images)
 		if err != nil {
 			log.Printf("[claude] session/prompt failed: %v", err)
 			c.emit("error", map[string]interface{}{
@@ -396,9 +396,13 @@ func (c *ClaudeBridge) Prompt(text string, images []string) error {
 		c.mu.Lock()
 		c.taskRunning = false
 		c.mu.Unlock()
+		// Forward the ACP prompt result verbatim so the client can surface
+		// any token usage / stop reason it carries (field shapes vary by
+		// agent version, so the client parses it defensively).
 		c.emit("turn/completed", map[string]interface{}{
 			"sessionId": sid,
 			"success":   err == nil,
+			"result":    result,
 		})
 	}()
 	return nil
@@ -499,6 +503,79 @@ func (c *ClaudeBridge) ClearSession() {
 	c.mu.Unlock()
 }
 
+// findSessionFilePath locates the on-disk JSONL for a session id, trying the
+// cwd-derived project dir first and then scanning all project dirs (the same
+// resolution `readSessionFile` uses).
+func findSessionFilePath(sessionId, cwd string) (string, error) {
+	if sessionId == "" {
+		return "", fmt.Errorf("sessionId is required")
+	}
+	if cwd != "" {
+		primary := filepath.Join(claudeProjectDir(cwd), sessionId+".jsonl")
+		if _, err := os.Stat(primary); err == nil {
+			return primary, nil
+		}
+	}
+	home, _ := os.UserHomeDir()
+	root := filepath.Join(home, ".claude", "projects")
+	entries, _ := os.ReadDir(root)
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		candidate := filepath.Join(root, entry.Name(), sessionId+".jsonl")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate, nil
+		}
+	}
+	return "", fmt.Errorf("session file not found: %s", sessionId)
+}
+
+// DeleteSession removes a session's JSONL file from disk.
+func (c *ClaudeBridge) DeleteSession(sessionId, cwd string) error {
+	path, err := findSessionFilePath(sessionId, cwd)
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	c.mu.Lock()
+	if c.currentSession == sessionId {
+		c.currentSession = ""
+	}
+	c.mu.Unlock()
+	return nil
+}
+
+// RenameSession sets a custom title by appending an `ai-title` record to the
+// session's JSONL. `parseClaudeSessionFile` already treats the last seen
+// ai-title as the session title, so this overrides any auto-generated name.
+func (c *ClaudeBridge) RenameSession(sessionId, title, cwd string) error {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return fmt.Errorf("title is required")
+	}
+	path, err := findSessionFilePath(sessionId, cwd)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	line, _ := json.Marshal(map[string]interface{}{
+		"type":      "ai-title",
+		"aiTitle":   title,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+	if _, err := f.Write(append(line, '\n')); err != nil {
+		return err
+	}
+	return nil
+}
+
 // TaskStatus returns the current task state for the iOS app to query
 // after reconnecting from background.
 func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
@@ -522,14 +599,14 @@ func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 	copy(events, c.lastNotifications)
 
 	return map[string]interface{}{
-		"ok":            true,
-		"running":       c.taskRunning,
-		"sessionId":     c.currentSession,
-		"startedAt":     c.taskStartedAt.UnixMilli(),
-		"recentEvents":  events,
-		"pendingPerms":  pendingPermList,
-		"model":         c.model,
-		"cwd":           c.cwd,
+		"ok":           true,
+		"running":      c.taskRunning,
+		"sessionId":    c.currentSession,
+		"startedAt":    c.taskStartedAt.UnixMilli(),
+		"recentEvents": events,
+		"pendingPerms": pendingPermList,
+		"model":        c.model,
+		"cwd":          c.cwd,
 	}
 }
 
