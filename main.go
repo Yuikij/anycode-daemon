@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.5.0"
+const Version = "0.5.1"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -43,6 +43,9 @@ func main() {
 			return
 		case "log", "logs":
 			cmdLog(os.Args[2:])
+			return
+		case "update":
+			cmdUpdate()
 			return
 		case "version", "--version", "-version", "-v":
 			fmt.Println(Version)

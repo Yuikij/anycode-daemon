@@ -56,7 +56,7 @@ func prompt(label string) string {
 func cmdLogin(args []string) {
 	fs := flag.NewFlagSet("login", flag.ExitOnError)
 	relay := fs.String("relay", "", "Relay/API base URL")
-	email := fs.String("email", "", "Account email")
+	email := fs.String("email", "", "Account email (bypasses device flow)")
 	password := fs.String("password", "", "Account password")
 	_ = fs.Parse(args)
 
@@ -64,39 +64,89 @@ func cmdLogin(args []string) {
 	if *relay != "" {
 		cfg.RelayURL = *relay
 	}
-	em := *email
-	if em == "" {
-		em = prompt("Email: ")
-	}
-	pw := *password
-	if pw == "" {
-		pw = prompt("Password: ")
+
+	if *email != "" || *password != "" {
+		// Legacy email/password flow
+		em := *email
+		if em == "" {
+			em = prompt("Email: ")
+		}
+		pw := *password
+		if pw == "" {
+			pw = prompt("Password: ")
+		}
+
+		parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/login", map[string]string{
+			"email": em, "password": pw,
+		}, "")
+		if err != nil {
+			fmt.Printf("Login failed: %v\n", err)
+			os.Exit(1)
+		}
+		if status != 200 {
+			fmt.Printf("Login failed: %v\n", apiError(parsed, status))
+			os.Exit(1)
+		}
+		token, _ := parsed["token"].(string)
+		if token == "" {
+			fmt.Println("Login failed: no token returned")
+			os.Exit(1)
+		}
+		cfg.Session = token
+		cfg.UserEmail = em
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Logged in as %s\n", em)
+		fmt.Println("Next: run `anycode register` to register this machine, then `anycode start`.")
+		return
 	}
 
-	parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/login", map[string]string{
-		"email": em, "password": pw,
-	}, "")
-	if err != nil {
-		fmt.Printf("Login failed: %v\n", err)
+	// Device Flow
+	parsed, status, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/device/init", nil, "")
+	if err != nil || status != 200 {
+		fmt.Printf("Failed to initialize device login: %v (HTTP %d)\n", err, status)
 		os.Exit(1)
 	}
-	if status != 200 {
-		fmt.Printf("Login failed: %v\n", apiError(parsed, status))
-		os.Exit(1)
+
+	deviceCode, _ := parsed["device_code"].(string)
+	userCode, _ := parsed["user_code"].(string)
+	verificationUri, _ := parsed["verification_uri"].(string)
+
+	fmt.Printf("\n  请在浏览器中打开以下链接：\n")
+	fmt.Printf("  %s\n\n", verificationUri)
+	fmt.Printf("  输入以下设备码进行授权：\n")
+	fmt.Printf("  %s\n\n", userCode)
+	fmt.Printf("等待网页端确认...\n")
+
+	for {
+		time.Sleep(3 * time.Second)
+		pollParsed, pollStatus, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/device/poll", map[string]string{
+			"device_code": deviceCode,
+		}, "")
+		
+		if err != nil || pollStatus != 200 {
+			if pollStatus == 400 && pollParsed["error"] != nil {
+				fmt.Printf("\n授权失败或已过期：%v\n", pollParsed["error"])
+				os.Exit(1)
+			}
+			continue
+		}
+
+		statusStr, _ := pollParsed["status"].(string)
+		if statusStr == "verified" {
+			token, _ := pollParsed["session_token"].(string)
+			cfg.Session = token
+			if err := cfg.Save(); err != nil {
+				fmt.Printf("\nCould not save config: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("\n✅ 登录成功！\n")
+			fmt.Println("Next: run `anycode register` to register this machine, then `anycode start`.")
+			return
+		}
 	}
-	token, _ := parsed["token"].(string)
-	if token == "" {
-		fmt.Println("Login failed: no token returned")
-		os.Exit(1)
-	}
-	cfg.Session = token
-	cfg.UserEmail = em
-	if err := cfg.Save(); err != nil {
-		fmt.Printf("Could not save config: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Logged in as %s\n", em)
-	fmt.Println("Next: run `anycode register` to register this machine, then `anycode start`.")
 }
 
 // cmdRegister registers *this machine* as a device under the account.
