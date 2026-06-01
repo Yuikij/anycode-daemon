@@ -266,3 +266,61 @@ func apiError(parsed map[string]interface{}, status int) string {
 	}
 	return fmt.Sprintf("HTTP %d", status)
 }
+
+// cmdProxy handles viewing or modifying the proxy configuration:
+//   anycode proxy
+//   anycode proxy get
+//   anycode proxy set <url>
+//   anycode proxy clear
+func cmdProxy(args []string) {
+	if len(args) == 0 || args[0] == "get" {
+		cfg := LoadConfig()
+		if cfg.Proxy != "" {
+			fmt.Println(cfg.Proxy)
+		} else {
+			fmt.Println("No proxy configured.")
+		}
+		return
+	}
+
+	if args[0] == "clear" || args[0] == "unset" {
+		cfg := LoadConfig()
+		cfg.Proxy = ""
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Proxy cleared.")
+		if pidFileExists() {
+			fmt.Println("Restarting daemon to apply changes...")
+			cmdRestart([]string{})
+		}
+		return
+	}
+
+	if args[0] == "set" {
+		if len(args) < 2 {
+			fmt.Println("Usage: anycode proxy set <url>")
+			os.Exit(1)
+		}
+		url := args[1]
+		if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "socks5://") {
+			url = "http://" + url
+		}
+		cfg := LoadConfig()
+		cfg.Proxy = url
+		if err := cfg.Save(); err != nil {
+			fmt.Printf("Could not save config: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Proxy set to %s\n", url)
+		if pidFileExists() {
+			fmt.Println("Restarting daemon to apply changes...")
+			cmdRestart([]string{})
+		}
+		return
+	}
+
+	fmt.Println("Usage: anycode proxy [get | set <url> | clear]")
+	os.Exit(1)
+}

@@ -298,6 +298,38 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 	case "daemon.version":
 		return map[string]string{"version": Version}, nil
 
+	case "daemon.configRead":
+		cfg := LoadConfig()
+		return map[string]interface{}{
+			"ok":    true,
+			"proxy": cfg.Proxy,
+		}, nil
+
+	case "daemon.configWrite":
+		cfg := LoadConfig()
+		proxy := getParamString(params, "proxy")
+		cfg.Proxy = proxy
+		if err := cfg.Save(); err != nil {
+			return nil, err
+		}
+		// Apply immediately to current process
+		if cfg.Proxy != "" {
+			os.Setenv("HTTP_PROXY", cfg.Proxy)
+			os.Setenv("HTTPS_PROXY", cfg.Proxy)
+			os.Setenv("ALL_PROXY", cfg.Proxy)
+			os.Setenv("http_proxy", cfg.Proxy)
+			os.Setenv("https_proxy", cfg.Proxy)
+			os.Setenv("all_proxy", cfg.Proxy)
+		} else {
+			os.Unsetenv("HTTP_PROXY")
+			os.Unsetenv("HTTPS_PROXY")
+			os.Unsetenv("ALL_PROXY")
+			os.Unsetenv("http_proxy")
+			os.Unsetenv("https_proxy")
+			os.Unsetenv("all_proxy")
+		}
+		return map[string]interface{}{"ok": true}, nil
+
 	case "share.create":
 		html := getParamString(params, "html")
 		if html == "" {
@@ -479,7 +511,9 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		"codex.threadRename", "codex.threadRollback",
 		"codex.threadCompact",
 		"codex.turnStart", "codex.turnSteer", "codex.turnInterrupt",
-		"codex.modelList", "codex.configRead":
+		"codex.modelList", "codex.configRead",
+		"codex.realtimeStart", "codex.realtimeStop",
+		"codex.realtimeAppendText", "codex.realtimeListVoices":
 		rpcMethod := strings.TrimPrefix(req.Method, "codex.")
 		rpcMethod = strings.Replace(rpcMethod, "thread", "thread/", 1)
 		rpcMethod = strings.Replace(rpcMethod, "turn", "turn/", 1)
@@ -861,6 +895,13 @@ func codexMethodMap(method string) string {
 		"codex.turnInterrupt":   "turn/interrupt",
 		"codex.modelList":       "model/list",
 		"codex.configRead":      "config/read",
+		// Experimental thread-scoped realtime voice (Codex app-server). The
+		// SDP answer + transcript/lifecycle events arrive as `thread/realtime/*`
+		// notifications, which are already broadcast verbatim via OnNotification.
+		"codex.realtimeStart":      "thread/realtime/start",
+		"codex.realtimeStop":       "thread/realtime/stop",
+		"codex.realtimeAppendText": "thread/realtime/appendText",
+		"codex.realtimeListVoices": "thread/realtime/listVoices",
 	}
 	if v, ok := m[method]; ok {
 		return v

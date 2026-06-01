@@ -17,6 +17,7 @@ type Config struct {
 	DeviceID    string `json:"deviceId,omitempty"`    // server device id (if known)
 	DeviceName  string `json:"deviceName,omitempty"`  //
 	DeviceToken string `json:"deviceToken,omitempty"` // device connect-token (relay agent + JSON-RPC auth)
+	Proxy       string `json:"proxy,omitempty"`       // HTTP/HTTPS proxy URL
 }
 
 func configDir() string {

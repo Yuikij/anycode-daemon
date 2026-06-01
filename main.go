@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.6.1"
+const Version = "0.6.3"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -47,6 +47,9 @@ func main() {
 		case "update":
 			cmdUpdate()
 			return
+		case "proxy":
+			cmdProxy(os.Args[2:])
+			return
 		case "version", "--version", "-version", "-v":
 			fmt.Println(Version)
 			return
@@ -73,6 +76,7 @@ Commands:
   restart    Restart the background daemon
   log, logs  Tail the daemon logs
   update     Self-update to the latest version
+  proxy      Get, set, or clear the HTTP/HTTPS proxy
   version    Print version information
 
 Run 'anycode <command> -h' for more details on a specific command.
@@ -88,6 +92,7 @@ func cmdStart(args []string) {
 	showVersion := fs.Bool("version", false, "Print version and exit")
 	background := fs.Bool("d", false, "Run as a detached background daemon")
 	backgroundLong := fs.Bool("daemon", false, "Run as a detached background daemon")
+	proxy := fs.String("proxy", "", "HTTP/HTTPS Proxy URL")
 	_ = fs.Parse(args)
 
 	if *showVersion {
@@ -119,6 +124,21 @@ func cmdStart(args []string) {
 	projectRoot, _ = filepath.Abs(projectRoot)
 
 	cfg := LoadConfig()
+
+	if *proxy != "" {
+		cfg.Proxy = *proxy
+		cfg.Save()
+	}
+
+	if cfg.Proxy != "" {
+		os.Setenv("HTTP_PROXY", cfg.Proxy)
+		os.Setenv("HTTPS_PROXY", cfg.Proxy)
+		os.Setenv("ALL_PROXY", cfg.Proxy)
+		os.Setenv("http_proxy", cfg.Proxy)
+		os.Setenv("https_proxy", cfg.Proxy)
+		os.Setenv("all_proxy", cfg.Proxy)
+	}
+
 	relayEnabled := !*noRelay && cfg.DeviceToken != "" && cfg.RelayURL != ""
 
 	// Token precedence: explicit flag > registered device token > random.

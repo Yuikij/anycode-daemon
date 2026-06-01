@@ -82,52 +82,51 @@ func cmdUpdate() {
 
 	fmt.Printf("Found new version: %s (downloading...)\n", release.TagName)
 
-	// 2. Construct download URL
+	// 2. Construct download URLs
 	assetName := fmt.Sprintf("anycode-daemon-%s-%s", goos, goarch)
 	if goos == "windows" {
 		assetName += ".exe"
 	}
-	downloadURL := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", repo, assetName)
+	githubURL := fmt.Sprintf("https://github.com/%s/releases/latest/download/%s", repo, assetName)
+	cdnURL := fmt.Sprintf("https://install.anycodeapp.com/daemon/latest/%s", assetName)
 
 	// 3. Download the new binary
 	tmpPath := exePath + ".tmp"
 	oldPath := exePath + ".old"
 
-	out, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
-	if err != nil {
-		fmt.Printf("Error creating temporary file: %v\n(You might need to run this command with sudo or Administrator privileges)\n", err)
-		os.Exit(1)
+	downloadFile := func(url string) error {
+		fmt.Printf("Attempting to download from: %s\n", url)
+		out, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		if err != nil {
+			return fmt.Errorf("create temp file: %v\n(You might need to run this command with sudo or Administrator privileges)", err)
+		}
+		defer out.Close()
+
+		dlReq, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return fmt.Errorf("create request: %v", err)
+		}
+		dlResp, err := client.Do(dlReq)
+		if err != nil {
+			return fmt.Errorf("download: %v", err)
+		}
+		defer dlResp.Body.Close()
+
+		if dlResp.StatusCode != http.StatusOK {
+			return fmt.Errorf("HTTP %d", dlResp.StatusCode)
+		}
+
+		_, err = io.Copy(out, dlResp.Body)
+		return err
 	}
 
-	dlReq, err := http.NewRequest("GET", downloadURL, nil)
-	if err != nil {
-		out.Close()
-		os.Remove(tmpPath)
-		fmt.Printf("Error creating download request: %v\n", err)
-		os.Exit(1)
-	}
-	dlResp, err := client.Do(dlReq)
-	if err != nil {
-		out.Close()
-		os.Remove(tmpPath)
-		fmt.Printf("Error downloading update: %v\n", err)
-		os.Exit(1)
-	}
-	defer dlResp.Body.Close()
-
-	if dlResp.StatusCode != http.StatusOK {
-		out.Close()
-		os.Remove(tmpPath)
-		fmt.Printf("Failed to download update (HTTP %d)\n", dlResp.StatusCode)
-		os.Exit(1)
-	}
-
-	_, err = io.Copy(out, dlResp.Body)
-	out.Close()
-	if err != nil {
-		os.Remove(tmpPath)
-		fmt.Printf("Error saving update: %v\n", err)
-		os.Exit(1)
+	if err := downloadFile(cdnURL); err != nil {
+		fmt.Printf("→ CDN download failed: %v. Falling back to GitHub...\n", err)
+		if err := downloadFile(githubURL); err != nil {
+			fmt.Printf("→ GitHub download failed: %v\n", err)
+			os.Remove(tmpPath)
+			os.Exit(1)
+		}
 	}
 
 	// 4. Replace the old binary
