@@ -102,11 +102,12 @@ func cmdUpdate() {
 		}
 		defer out.Close()
 
+		dlClient := &http.Client{Timeout: 10 * time.Minute} // Allow up to 10 minutes for download
 		dlReq, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			return fmt.Errorf("create request: %v", err)
 		}
-		dlResp, err := client.Do(dlReq)
+		dlResp, err := dlClient.Do(dlReq)
 		if err != nil {
 			return fmt.Errorf("download: %v", err)
 		}
