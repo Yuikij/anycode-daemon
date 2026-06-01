@@ -149,10 +149,8 @@ func (b *AgentBridge) Start(command string, args []string, cwd string) error {
 	}
 
 	_, err := b.Send("initialize", map[string]interface{}{
-		"clientInfo": map[string]string{"name": "AnyCode", "version": Version},
-		"capabilities": map[string]interface{}{
-			"experimentalApi": true,
-		},
+		"clientInfo":   map[string]string{"name": "AnyCode", "version": Version},
+		"capabilities": map[string]interface{}{},
 	})
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)

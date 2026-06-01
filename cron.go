@@ -160,7 +160,7 @@ func (cm *CronManager) executeJob(jobID string) {
 	case "codex":
 		if sessionID == "" {
 			if !cm.server.codex.IsRunning() {
-				_ = cm.server.codex.Start("codex", codexAppServerArgs(), cm.server.projectRoot)
+				_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), cm.server.projectRoot)
 			}
 			// Request new thread
 			res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
@@ -270,7 +270,7 @@ func (cm *CronManager) createSessionForJob(jobID, agent string) {
 		sessionID = cm.server.claude.SessionId()
 	case "codex":
 		if !cm.server.codex.IsRunning() {
-			_ = cm.server.codex.Start("codex", codexAppServerArgs(), cm.server.projectRoot)
+			_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), cm.server.projectRoot)
 		}
 		res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
 		if err == nil && res != nil {

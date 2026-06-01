@@ -469,8 +469,9 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		if cwd == "" {
 			cwd = s.projectRoot
 		}
-		log.Printf("[codex.start] cwd=%s, already_running=%v", cwd, s.codex.IsRunning())
-		if err := s.codex.Start("codex", codexAppServerArgs(), cwd); err != nil {
+		command := codexCommand()
+		log.Printf("[codex.start] command=%s cwd=%s, already_running=%v", command, cwd, s.codex.IsRunning())
+		if err := s.codex.Start(command, codexAppServerArgs(), cwd); err != nil {
 			log.Printf("[codex.start] error: %v", err)
 			return nil, err
 		}
@@ -511,9 +512,7 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 		"codex.threadRename", "codex.threadRollback",
 		"codex.threadCompact",
 		"codex.turnStart", "codex.turnSteer", "codex.turnInterrupt",
-		"codex.modelList", "codex.configRead",
-		"codex.realtimeStart", "codex.realtimeStop",
-		"codex.realtimeAppendText", "codex.realtimeListVoices":
+		"codex.modelList", "codex.configRead":
 		rpcMethod := strings.TrimPrefix(req.Method, "codex.")
 		rpcMethod = strings.Replace(rpcMethod, "thread", "thread/", 1)
 		rpcMethod = strings.Replace(rpcMethod, "turn", "turn/", 1)
@@ -895,13 +894,6 @@ func codexMethodMap(method string) string {
 		"codex.turnInterrupt":   "turn/interrupt",
 		"codex.modelList":       "model/list",
 		"codex.configRead":      "config/read",
-		// Experimental thread-scoped realtime voice (Codex app-server). The
-		// SDP answer + transcript/lifecycle events arrive as `thread/realtime/*`
-		// notifications, which are already broadcast verbatim via OnNotification.
-		"codex.realtimeStart":      "thread/realtime/start",
-		"codex.realtimeStop":       "thread/realtime/stop",
-		"codex.realtimeAppendText": "thread/realtime/appendText",
-		"codex.realtimeListVoices": "thread/realtime/listVoices",
 	}
 	if v, ok := m[method]; ok {
 		return v
@@ -913,11 +905,18 @@ func codexAppServerArgs() []string {
 	return []string{
 		"app-server",
 		"--listen", "stdio://",
-		"--enable", "realtime_conversation",
-		"-c", "experimental_realtime_ws_model=\"gpt-realtime-2\"",
-		"-c", "realtime.version=\"v2\"",
-		"-c", "realtime.type=\"conversational\"",
 	}
+}
+
+func codexCommand() string {
+	if command := strings.TrimSpace(os.Getenv("ANYCODE_CODEX_BIN")); command != "" {
+		return command
+	}
+	const desktopCodex = "/Applications/Codex.app/Contents/Resources/codex"
+	if _, err := os.Stat(desktopCodex); err == nil {
+		return desktopCodex
+	}
+	return "codex"
 }
 
 func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}, error) {
@@ -955,6 +954,15 @@ func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}
 		}
 		if kindType == "" {
 			kindType = "add"
+		}
+		// Normalize kind variants across agents: Codex uses add/update/delete,
+		// while claude-code-acp reports edits as "modify". Anything that isn't
+		// an explicit add/delete is treated as an in-place update so undo/redo
+		// reverts file edits regardless of the originating agent.
+		switch kindType {
+		case "add", "delete", "update":
+		default:
+			kindType = "update"
 		}
 
 		var err error
