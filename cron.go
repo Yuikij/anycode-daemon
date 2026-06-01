@@ -160,7 +160,7 @@ func (cm *CronManager) executeJob(jobID string) {
 	case "codex":
 		if sessionID == "" {
 			if !cm.server.codex.IsRunning() {
-				_ = cm.server.codex.Start("codex", []string{"app-server", "--listen", "stdio://"}, cm.server.projectRoot)
+				_ = cm.server.codex.Start("codex", codexAppServerArgs(), cm.server.projectRoot)
 			}
 			// Request new thread
 			res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
@@ -237,7 +237,7 @@ func (cm *CronManager) CreateJob(name, agent, sessionID, prompt, expression stri
 	cm.jobs[id] = job
 	cm.saveJobs()
 	cm.scheduleJob(job)
-	
+
 	// If the job was created with no session, and we are on Gemini or Claude,
 	// maybe we pre-create it? Actually, wait, it's safer to create it on first run or right now.
 	// We'll stick to creating it on first run as implemented in executeJob, but
@@ -270,7 +270,7 @@ func (cm *CronManager) createSessionForJob(jobID, agent string) {
 		sessionID = cm.server.claude.SessionId()
 	case "codex":
 		if !cm.server.codex.IsRunning() {
-			_ = cm.server.codex.Start("codex", []string{"app-server", "--listen", "stdio://"}, cm.server.projectRoot)
+			_ = cm.server.codex.Start("codex", codexAppServerArgs(), cm.server.projectRoot)
 		}
 		res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
 		if err == nil && res != nil {
@@ -303,11 +303,17 @@ func (cm *CronManager) UpdateJob(id, name, agent, sessionID, prompt, expression 
 		job.Expression = expression
 	}
 
-	if name != "" { job.Name = name }
-	if agent != "" { job.Agent = agent }
+	if name != "" {
+		job.Name = name
+	}
+	if agent != "" {
+		job.Agent = agent
+	}
 	// We allow sessionID to be empty, so we must always set it if passed
-	job.SessionID = sessionID 
-	if prompt != "" { job.Prompt = prompt }
+	job.SessionID = sessionID
+	if prompt != "" {
+		job.Prompt = prompt
+	}
 	job.Enabled = enabled
 
 	cm.jobs[id] = job

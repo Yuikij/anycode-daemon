@@ -470,7 +470,7 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 			cwd = s.projectRoot
 		}
 		log.Printf("[codex.start] cwd=%s, already_running=%v", cwd, s.codex.IsRunning())
-		if err := s.codex.Start("codex", []string{"app-server", "--listen", "stdio://"}, cwd); err != nil {
+		if err := s.codex.Start("codex", codexAppServerArgs(), cwd); err != nil {
 			log.Printf("[codex.start] error: %v", err)
 			return nil, err
 		}
@@ -907,6 +907,17 @@ func codexMethodMap(method string) string {
 		return v
 	}
 	return method
+}
+
+func codexAppServerArgs() []string {
+	return []string{
+		"app-server",
+		"--listen", "stdio://",
+		"--enable", "realtime_conversation",
+		"-c", "experimental_realtime_ws_model=\"gpt-realtime-2\"",
+		"-c", "realtime.version=\"v2\"",
+		"-c", "realtime.type=\"conversational\"",
+	}
 }
 
 func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}, error) {
