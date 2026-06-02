@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.2.9"
+const Version = "0.3.0"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -173,7 +173,7 @@ func cmdStart(args []string) {
   Connect from phone: ws://%s:%d
   Connect locally:    ws://localhost:%d
 
-`, Version, projectRoot, *port, token, relayLine, bestIP, *port, *port)
+`, Version, projectRoot, *port, maskSecret(token), relayLine, bestIP, *port, *port)
 
 	// When running as the detached background child, own the PID file so
 	// `anycode status/stop/restart` can find us, and clean it up on exit.
@@ -215,6 +215,13 @@ func displayName(cfg *Config) string {
 		return cfg.DeviceID
 	}
 	return "this machine"
+}
+
+func maskSecret(value string) string {
+	if len(value) <= 8 {
+		return "********"
+	}
+	return value[:4] + "..." + value[len(value)-4:]
 }
 
 func pickBestIP() string {

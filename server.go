@@ -27,6 +27,9 @@ const (
 	proxyOpenPath     = "/__anycode_proxy/open"
 	proxyTokenCookie  = "anycode_proxy_token"
 	proxyOriginCookie = "anycode_proxy_origin"
+	sessionCookieName = "AUTH_SESSION"
+	relayDeviceCookie = "anycode_relay_proxy_device"
+	relayAuthCookie   = "anycode_relay_proxy_auth"
 )
 
 type wsClient struct {
@@ -1219,6 +1222,7 @@ func (s *Server) handleRelayProxyFetch(params map[string]interface{}) (interface
 	if forwardedHost := req.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
 		req.Host = forwardedHost
 	}
+	s.prepareRelayProxyRequest(req)
 
 	rec := httptest.NewRecorder()
 	if req.URL.Path == proxyOpenPath {
@@ -1242,12 +1246,29 @@ func (s *Server) handleRelayProxyFetch(params map[string]interface{}) (interface
 	for key, values := range resp.Header {
 		headers[key] = append([]string(nil), values...)
 	}
+	filterRelayProxyResponseHeaders(headers)
 
 	return map[string]interface{}{
 		"status":     resp.StatusCode,
 		"headers":    headers,
 		"bodyBase64": base64.StdEncoding.EncodeToString(respBody),
 	}, nil
+}
+
+func (s *Server) prepareRelayProxyRequest(req *http.Request) {
+	if req.URL.Path == proxyOpenPath {
+		q := req.URL.Query()
+		if q.Get("token") == "" {
+			q.Set("token", s.token)
+			req.URL.RawQuery = q.Encode()
+		}
+		return
+	}
+
+	if _, err := req.Cookie(proxyTokenCookie); err == nil {
+		return
+	}
+	req.AddCookie(&http.Cookie{Name: proxyTokenCookie, Value: s.token})
 }
 
 func (s *Server) proxyToTarget(w http.ResponseWriter, r *http.Request, target *url.URL) {
@@ -1395,7 +1416,7 @@ func stripProxyCookies(req *http.Request) {
 
 	kept := make([]string, 0, len(cookies))
 	for _, cookie := range cookies {
-		if cookie.Name == proxyTokenCookie || cookie.Name == proxyOriginCookie {
+		if isReservedProxyCookieName(cookie.Name) {
 			continue
 		}
 		kept = append(kept, cookie.Name+"="+cookie.Value)
@@ -1457,6 +1478,9 @@ func rewriteSetCookieHeaders(resp *http.Response) {
 
 	resp.Header.Del("Set-Cookie")
 	for _, value := range values {
+		if isReservedProxyCookieName(setCookieName(value)) {
+			continue
+		}
 		parts := strings.Split(value, ";")
 		kept := parts[:0]
 		for _, part := range parts {
@@ -1467,6 +1491,45 @@ func rewriteSetCookieHeaders(resp *http.Response) {
 			kept = append(kept, part)
 		}
 		resp.Header.Add("Set-Cookie", strings.Join(kept, ";"))
+	}
+}
+
+func filterRelayProxyResponseHeaders(headers map[string][]string) {
+	for key, values := range headers {
+		if !strings.EqualFold(key, "Set-Cookie") {
+			continue
+		}
+		kept := values[:0]
+		for _, value := range values {
+			if strings.EqualFold(setCookieName(value), proxyTokenCookie) {
+				continue
+			}
+			kept = append(kept, value)
+		}
+		if len(kept) == 0 {
+			delete(headers, key)
+		} else {
+			headers[key] = kept
+		}
+	}
+}
+
+func setCookieName(value string) string {
+	first := strings.SplitN(value, ";", 2)[0]
+	name := strings.SplitN(first, "=", 2)[0]
+	return strings.TrimSpace(name)
+}
+
+func isReservedProxyCookieName(name string) bool {
+	switch strings.ToLower(name) {
+	case strings.ToLower(proxyTokenCookie),
+		strings.ToLower(proxyOriginCookie),
+		strings.ToLower(sessionCookieName),
+		strings.ToLower(relayDeviceCookie),
+		strings.ToLower(relayAuthCookie):
+		return true
+	default:
+		return false
 	}
 }
 
@@ -1499,6 +1562,7 @@ func rewriteTextResponse(resp *http.Response, target *url.URL, incomingHost, inc
 	if strings.Contains(contentType, "text/html") {
 		text = injectBaseTag(text, proxyOrigin+"/")
 		text = rewriteHTMLRootRelativeRefs(text, target)
+		text = rewriteCSSRootRelativeRefs(text, target)
 	} else if strings.Contains(contentType, "text/css") {
 		text = rewriteCSSRootRelativeRefs(text, target)
 	} else if strings.Contains(contentType, "javascript") {
@@ -1539,9 +1603,8 @@ func rewriteHTMLRootRelativeRefs(text string, target *url.URL) string {
 }
 
 // injectBaseTag inserts <base href="baseHref"> as the first child of <head>.
-// This fixes root-relative refs that the string rewriter can't catch: inline
-// @font-face url() in <style> blocks, preload links, and browser-resolved paths.
-// It does NOT fix webpack __webpack_public_path__ (handled by rewriteJSPublicPath).
+// This helps browser-resolved relative paths that the string rewriter can't
+// catch. Root-relative refs are rewritten separately.
 func injectBaseTag(html, baseHref string) string {
 	tag := `<base href="` + baseHref + `">`
 	for _, marker := range []string{"<head>", "<head ", "<HEAD>", "<HEAD "} {
