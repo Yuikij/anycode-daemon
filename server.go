@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -251,6 +253,22 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 		if req.Method == "share.read" {
 			p := getParams(req.Params)
 			result, herr := s.readShare(getParamString(p, "id"))
+			var reply []byte
+			if herr != nil {
+				reply, _ = json.Marshal(makeError(id, -32000, herr.Error()))
+			} else {
+				reply, _ = json.Marshal(makeResponse(id, result))
+			}
+			client.send(reply)
+			continue
+		}
+
+		// proxy.fetch is called by the authenticated relay worker to serve the
+		// built-in browser over the agent WebSocket. The underlying HTTP proxy
+		// handlers still validate the daemon token from query/cookies.
+		if req.Method == "proxy.fetch" {
+			p := getParams(req.Params)
+			result, herr := s.handleRelayProxyFetch(p)
 			var reply []byte
 			if herr != nil {
 				reply, _ = json.Marshal(makeError(id, -32000, herr.Error()))
@@ -1155,6 +1173,83 @@ func (s *Server) handleProxyFallback(w http.ResponseWriter, r *http.Request) {
 	s.proxyToTarget(w, r, &target)
 }
 
+func (s *Server) handleRelayProxyFetch(params map[string]interface{}) (interface{}, error) {
+	method := getParamString(params, "method")
+	if method == "" {
+		method = http.MethodGet
+	}
+	proxyPath := getParamString(params, "path")
+	if proxyPath == "" || !strings.HasPrefix(proxyPath, "/") {
+		return nil, fmt.Errorf("invalid proxy path")
+	}
+
+	var body []byte
+	if encoded := getParamString(params, "bodyBase64"); encoded != "" {
+		decoded, err := base64.StdEncoding.DecodeString(encoded)
+		if err != nil {
+			return nil, fmt.Errorf("invalid body: %w", err)
+		}
+		body = decoded
+	}
+
+	req, err := http.NewRequest(method, "https://relay.internal"+proxyPath, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Host = "anycodeapp.com"
+
+	if rawHeaders, ok := params["headers"].(map[string]interface{}); ok {
+		for key, rawValue := range rawHeaders {
+			switch values := rawValue.(type) {
+			case []interface{}:
+				for _, value := range values {
+					if s, ok := value.(string); ok {
+						req.Header.Add(key, s)
+					}
+				}
+			case []string:
+				for _, value := range values {
+					req.Header.Add(key, value)
+				}
+			case string:
+				req.Header.Add(key, values)
+			}
+		}
+	}
+	if forwardedHost := req.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		req.Host = forwardedHost
+	}
+
+	rec := httptest.NewRecorder()
+	if req.URL.Path == proxyOpenPath {
+		s.handleProxyOpen(rec, req)
+	} else if strings.HasPrefix(req.URL.Path, proxyPrefix) {
+		s.handleProxyPrefix(rec, req)
+	} else if s.hasProxyAuth(req) {
+		s.handleProxyFallback(rec, req)
+	} else {
+		http.NotFound(rec, req)
+	}
+
+	resp := rec.Result()
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	headers := make(map[string][]string)
+	for key, values := range resp.Header {
+		headers[key] = append([]string(nil), values...)
+	}
+
+	return map[string]interface{}{
+		"status":     resp.StatusCode,
+		"headers":    headers,
+		"bodyBase64": base64.StdEncoding.EncodeToString(respBody),
+	}, nil
+}
+
 func (s *Server) proxyToTarget(w http.ResponseWriter, r *http.Request, target *url.URL) {
 	origin := &url.URL{Scheme: target.Scheme, Host: target.Host}
 	proxy := httputil.NewSingleHostReverseProxy(origin)
@@ -1165,9 +1260,15 @@ func (s *Server) proxyToTarget(w http.ResponseWriter, r *http.Request, target *u
 	}
 	targetQuery := target.RawQuery
 	incomingHost := r.Host
+	if forwardedHost := r.Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		incomingHost = forwardedHost
+	}
 	incomingScheme := "http"
 	if r.TLS != nil {
 		incomingScheme = "https"
+	}
+	if forwardedProto := r.Header.Get("X-Forwarded-Proto"); forwardedProto == "http" || forwardedProto == "https" {
+		incomingScheme = forwardedProto
 	}
 
 	proxy.Director = func(req *http.Request) {
@@ -1324,7 +1425,15 @@ func rewriteLocationHeader(resp *http.Response, target *url.URL, incomingHost st
 	}
 
 	if strings.HasPrefix(location, "/") && !strings.HasPrefix(location, "//") {
-		resp.Header.Set("Location", location)
+		relURL, err := url.Parse(location)
+		if err != nil {
+			return
+		}
+		locURL := *target
+		locURL.Path = relURL.Path
+		locURL.RawPath = relURL.RawPath
+		locURL.RawQuery = relURL.RawQuery
+		resp.Header.Set("Location", proxyPathForTarget(&locURL))
 		return
 	}
 
@@ -1387,6 +1496,11 @@ func rewriteTextResponse(resp *http.Response, target *url.URL, incomingHost, inc
 	}
 	text = strings.ReplaceAll(text, origin, proxyOrigin)
 	text = strings.ReplaceAll(text, "//"+target.Host, proxyOrigin)
+	if strings.Contains(contentType, "text/html") {
+		text = rewriteHTMLRootRelativeRefs(text, target)
+	} else if strings.Contains(contentType, "text/css") {
+		text = rewriteCSSRootRelativeRefs(text, target)
+	}
 
 	rewritten := []byte(text)
 	resp.Body = io.NopCloser(strings.NewReader(text))
@@ -1401,4 +1515,35 @@ func isRewriteableContent(contentType string) bool {
 		strings.Contains(contentType, "javascript") ||
 		strings.Contains(contentType, "application/json") ||
 		strings.Contains(contentType, "text/plain")
+}
+
+func rewriteHTMLRootRelativeRefs(text string, target *url.URL) string {
+	proxyBase := proxyPrefix + target.Scheme + "/" + url.PathEscape(target.Host)
+	replacements := [][2]string{
+		{`href="/`, `href="` + proxyBase + `/`},
+		{`src="/`, `src="` + proxyBase + `/`},
+		{`action="/`, `action="` + proxyBase + `/`},
+		{`poster="/`, `poster="` + proxyBase + `/`},
+		{`href='/`, `href='` + proxyBase + `/`},
+		{`src='/`, `src='` + proxyBase + `/`},
+		{`action='/`, `action='` + proxyBase + `/`},
+		{`poster='/`, `poster='` + proxyBase + `/`},
+	}
+	for _, pair := range replacements {
+		text = strings.ReplaceAll(text, pair[0], pair[1])
+	}
+	return text
+}
+
+func rewriteCSSRootRelativeRefs(text string, target *url.URL) string {
+	proxyBase := proxyPrefix + target.Scheme + "/" + url.PathEscape(target.Host)
+	replacements := [][2]string{
+		{`url("/`, `url("` + proxyBase + `/`},
+		{`url('/`, `url('` + proxyBase + `/`},
+		{`url(/`, `url(` + proxyBase + `/`},
+	}
+	for _, pair := range replacements {
+		text = strings.ReplaceAll(text, pair[0], pair[1])
+	}
+	return text
 }
