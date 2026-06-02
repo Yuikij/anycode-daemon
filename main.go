@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.2.8"
+const Version = "0.2.9"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;

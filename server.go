@@ -1497,9 +1497,12 @@ func rewriteTextResponse(resp *http.Response, target *url.URL, incomingHost, inc
 	text = strings.ReplaceAll(text, origin, proxyOrigin)
 	text = strings.ReplaceAll(text, "//"+target.Host, proxyOrigin)
 	if strings.Contains(contentType, "text/html") {
+		text = injectBaseTag(text, proxyOrigin+"/")
 		text = rewriteHTMLRootRelativeRefs(text, target)
 	} else if strings.Contains(contentType, "text/css") {
 		text = rewriteCSSRootRelativeRefs(text, target)
+	} else if strings.Contains(contentType, "javascript") {
+		text = rewriteJSPublicPath(text, proxyOrigin+"/")
 	}
 
 	rewritten := []byte(text)
@@ -1531,6 +1534,42 @@ func rewriteHTMLRootRelativeRefs(text string, target *url.URL) string {
 	}
 	for _, pair := range replacements {
 		text = strings.ReplaceAll(text, pair[0], pair[1])
+	}
+	return text
+}
+
+// injectBaseTag inserts <base href="baseHref"> as the first child of <head>.
+// This fixes root-relative refs that the string rewriter can't catch: inline
+// @font-face url() in <style> blocks, preload links, and browser-resolved paths.
+// It does NOT fix webpack __webpack_public_path__ (handled by rewriteJSPublicPath).
+func injectBaseTag(html, baseHref string) string {
+	tag := `<base href="` + baseHref + `">`
+	for _, marker := range []string{"<head>", "<head ", "<HEAD>", "<HEAD "} {
+		if idx := strings.Index(html, marker); idx >= 0 {
+			end := strings.Index(html[idx:], ">")
+			if end < 0 {
+				break
+			}
+			pos := idx + end + 1
+			return html[:pos] + tag + html[pos:]
+		}
+	}
+	// No <head> tag — prepend to body as fallback.
+	if idx := strings.Index(html, "<body"); idx >= 0 {
+		return html[:idx] + "<head>" + tag + "</head>" + html[idx:]
+	}
+	return html
+}
+
+func rewriteJSPublicPath(text, proxyBase string) string {
+	quoted := `"` + proxyBase + `"`
+	for _, pat := range []string{
+		`__webpack_public_path__="/"`,
+		`__webpack_public_path__='/'`,
+		`__webpack_public_path__ = "/"`,
+		`__webpack_public_path__ = '/'`,
+	} {
+		text = strings.ReplaceAll(text, pat, `__webpack_public_path__=`+quoted)
 	}
 	return text
 }
