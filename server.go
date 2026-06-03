@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
@@ -32,6 +33,25 @@ const (
 	relayAuthCookie   = "anycode_relay_proxy_auth"
 )
 
+// WebSocket keepalive. The relay link (daemon → Cloudflare Durable Object) and
+// local browser/app clients can silently die (NAT/idle timeouts, dropped
+// Wi-Fi) without ever delivering a TCP FIN. Without a read deadline the daemon
+// would block forever in ReadMessage and never notice — which is exactly the
+// "长时间不操作后连不上" symptom: the agent link is dead but never reconnects.
+//
+// We send a WebSocket ping every pingPeriod and require *some* inbound frame
+// (a pong, an RPC, or the client heartbeat) within pongWait, otherwise the read
+// fails and the connection loop exits — triggering relayLoop's reconnect.
+//
+// Cloudflare's runtime auto-responds to ping frames with pongs, and both
+// browsers (DOM WebSocket) and iOS (URLSessionWebSocketTask) auto-pong, so this
+// is transparent to every existing client.
+const (
+	pongWait   = 70 * time.Second
+	pingPeriod = 30 * time.Second
+	ctrlWait   = 30 * time.Second
+)
+
 type wsClient struct {
 	conn   *websocket.Conn
 	wmu    sync.Mutex // protects writes
@@ -43,6 +63,19 @@ func (c *wsClient) send(data []byte) {
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	_ = c.conn.WriteMessage(websocket.TextMessage, data)
+}
+
+// ping sends a WebSocket control ping frame, sharing the write mutex with
+// send() so it never interleaves with a data frame. A bounded write deadline is
+// applied only to the control frame (data frames stay deadline-free so large
+// proxy transfers over slow links are not cut off).
+func (c *wsClient) ping() error {
+	c.wmu.Lock()
+	defer c.wmu.Unlock()
+	_ = c.conn.SetWriteDeadline(time.Now().Add(ctrlWait))
+	err := c.conn.WriteMessage(websocket.PingMessage, nil)
+	_ = c.conn.SetWriteDeadline(time.Time{})
+	return err
 }
 
 type Server struct {
@@ -202,7 +235,32 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 	s.clients[client] = struct{}{}
 	s.mu.Unlock()
 
+	// Keepalive: expire the read if no frame (pong/RPC/heartbeat) arrives in
+	// time, and refresh the deadline on every pong. A dedicated goroutine sends
+	// pings until the connection loop exits.
+	_ = conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(pongWait))
+	})
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if err := client.ping(); err != nil {
+					return
+				}
+			}
+		}
+	}()
+
 	defer func() {
+		close(done)
 		s.mu.Lock()
 		delete(s.clients, client)
 		s.mu.Unlock()
@@ -216,10 +274,22 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 			log.Printf("[server] read error: %v", err)
 			break
 		}
+		// Any inbound frame proves the link is alive; extend the read window.
+		_ = conn.SetReadDeadline(time.Now().Add(pongWait))
 
 		var req RpcRequest
 		if err := json.Unmarshal(data, &req); err != nil {
 			reply, _ := json.Marshal(makeError(0, -32700, "Parse error"))
+			client.send(reply)
+			continue
+		}
+
+		// Application-level heartbeat from the web client (the browser DOM
+		// WebSocket API can't send protocol pings). Reply with a `pong`
+		// notification so the client can detect a dead link and reconnect.
+		// It carries no id, so handle it before the id validation below.
+		if req.Method == "ping" {
+			reply, _ := json.Marshal(makeNotification("pong", nil))
 			client.send(reply)
 			continue
 		}
@@ -1271,9 +1341,48 @@ func (s *Server) prepareRelayProxyRequest(req *http.Request) {
 	req.AddCookie(&http.Cookie{Name: proxyTokenCookie, Value: s.token})
 }
 
+// proxyTransport mirrors http.DefaultTransport but routes loopback/LAN targets
+// directly instead of through the daemon's configured upstream proxy.
+//
+// The built-in browser proxies through this daemon. When the user has set an
+// HTTP/HTTPS proxy (a common setup, e.g. in mainland China), DefaultTransport
+// would forward *every* request — including `http://localhost:3000` for a local
+// dev server — to that upstream proxy, which can't reach the dev machine's
+// loopback. The result: the built-in browser can't open the remote machine's
+// localhost over the relay. Public targets still honor the configured proxy.
+var proxyTransport = newProxyTransport()
+
+func newProxyTransport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Proxy = func(req *http.Request) (*url.URL, error) {
+		if isDirectProxyHost(req.URL.Hostname()) {
+			return nil, nil
+		}
+		return http.ProxyFromEnvironment(req)
+	}
+	return t
+}
+
+// isDirectProxyHost reports whether a target host should bypass the configured
+// upstream proxy (loopback, private, or link-local addresses + "localhost").
+func isDirectProxyHost(host string) bool {
+	if host == "" {
+		return false
+	}
+	if strings.EqualFold(host, "localhost") || strings.HasSuffix(strings.ToLower(host), ".localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+}
+
 func (s *Server) proxyToTarget(w http.ResponseWriter, r *http.Request, target *url.URL) {
 	origin := &url.URL{Scheme: target.Scheme, Host: target.Host}
 	proxy := httputil.NewSingleHostReverseProxy(origin)
+	proxy.Transport = proxyTransport
 
 	targetPath := target.EscapedPath()
 	if targetPath == "" {
