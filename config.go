@@ -32,6 +32,13 @@ func configPath() string {
 	return filepath.Join(configDir(), "config.json")
 }
 
+func stateDBPath() string {
+	if override := os.Getenv("ANYCODE_STATE_DB_PATH"); override != "" {
+		return override
+	}
+	return filepath.Join(configDir(), "state.db")
+}
+
 func LoadConfig() *Config {
 	cfg := &Config{RelayURL: DefaultRelayURL}
 	data, err := os.ReadFile(configPath())

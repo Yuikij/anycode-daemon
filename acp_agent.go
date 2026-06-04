@@ -13,6 +13,48 @@ type AcpCapabilities struct {
 	CanSetMode  bool
 }
 
+type acpInitializeParams struct {
+	ProtocolVersion    int                    `json:"protocolVersion"`
+	ClientInfo         map[string]string      `json:"clientInfo"`
+	ClientCapabilities map[string]interface{} `json:"clientCapabilities"`
+}
+
+type acpAuthenticateParams struct {
+	MethodID string `json:"methodId"`
+}
+
+type acpSessionParams struct {
+	SessionID  string        `json:"sessionId,omitempty"`
+	Cwd        string        `json:"cwd,omitempty"`
+	MCPServers []interface{} `json:"mcpServers"`
+}
+
+type acpPromptContent struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	MimeType string `json:"mimeType,omitempty"`
+	Data     string `json:"data,omitempty"`
+}
+
+type acpPromptParams struct {
+	SessionID string             `json:"sessionId"`
+	Prompt    []acpPromptContent `json:"prompt"`
+}
+
+type acpCancelParams struct {
+	SessionID string `json:"sessionId"`
+}
+
+type acpSetModeParams struct {
+	SessionID string `json:"sessionId"`
+	ModeID    string `json:"modeId"`
+}
+
+type acpSetModelParams struct {
+	SessionID string `json:"sessionId"`
+	ModelID   string `json:"modelId"`
+}
+
 type AcpUnsupportedMethodError struct {
 	Method string
 }
@@ -35,11 +77,12 @@ type AcpAgentConfig struct {
 
 // AcpAgent manages an ACP-compatible CLI process over stdio JSON-RPC.
 type AcpAgent struct {
-	mu     sync.Mutex
-	config AcpAgentConfig
-	bridge *AgentBridge
-	cwd    string
-	avail  bool
+	mu            sync.Mutex
+	config        AcpAgentConfig
+	bridge        *AgentBridge
+	cwd           string
+	avail         bool
+	loadedSession string
 
 	OnNotification func(method string, params interface{})
 	OnRequest      func(id interface{}, method string, params interface{})
@@ -101,7 +144,8 @@ func (a *AcpAgent) CheckAvailable() bool {
 }
 
 func (a *AcpAgent) Start() error {
-	if a.bridge.IsRunning() {
+	wasRunning := a.bridge.IsRunning()
+	if wasRunning {
 		return nil
 	}
 
@@ -111,18 +155,23 @@ func (a *AcpAgent) Start() error {
 		return fmt.Errorf("spawn %s: %w", a.config.Label, err)
 	}
 
-	return a.initialize()
+	if err := a.initialize(); err != nil {
+		return err
+	}
+	a.clearLoadedSession()
+	return nil
 }
 
 func (a *AcpAgent) Stop() {
 	a.bridge.Stop()
+	a.clearLoadedSession()
 }
 
 func (a *AcpAgent) initialize() error {
-	raw, err := a.bridge.Send("initialize", map[string]interface{}{
-		"protocolVersion":    1,
-		"clientInfo":         map[string]string{"name": "AnyCode", "version": Version},
-		"clientCapabilities": map[string]interface{}{},
+	raw, err := a.bridge.Send("initialize", acpInitializeParams{
+		ProtocolVersion:    1,
+		ClientInfo:         map[string]string{"name": "AnyCode", "version": Version},
+		ClientCapabilities: map[string]interface{}{},
 	})
 	if err != nil {
 		return fmt.Errorf("ACP initialize: %w", err)
@@ -134,7 +183,7 @@ func (a *AcpAgent) initialize() error {
 		if len(methodIds) > 0 && !contains(methodIds, methodId) {
 			continue
 		}
-		_, err := a.bridge.Send("authenticate", map[string]interface{}{"methodId": methodId})
+		_, err := a.bridge.Send("authenticate", acpAuthenticateParams{MethodID: methodId})
 		if err == nil {
 			log.Printf("[%s] authenticated via %s", a.config.ID, methodId)
 			return nil
@@ -164,41 +213,101 @@ func extractAcpAuthMethodIDs(raw interface{}) []string {
 }
 
 func (a *AcpAgent) NewSession(cwd string) (map[string]interface{}, error) {
-	raw, err := a.bridge.Send("session/new", map[string]interface{}{
-		"cwd":        cwd,
-		"mcpServers": []interface{}{},
+	raw, err := a.bridge.Send("session/new", acpSessionParams{
+		Cwd:        cwd,
+		MCPServers: []interface{}{},
 	})
-	return normalizeMapResult(raw), err
+	result := normalizeMapResult(raw)
+	if err == nil {
+		if sessionId, _ := result["sessionId"].(string); sessionId != "" {
+			a.markLoadedSession(sessionId)
+		}
+	}
+	return result, err
 }
 
 func (a *AcpAgent) LoadSession(sessionId, cwd string) (map[string]interface{}, error) {
-	raw, err := a.bridge.Send("session/load", map[string]interface{}{
-		"sessionId":  sessionId,
-		"cwd":        cwd,
-		"mcpServers": []interface{}{},
+	raw, err := a.bridge.Send("session/load", acpSessionParams{
+		SessionID:  sessionId,
+		Cwd:        cwd,
+		MCPServers: []interface{}{},
 	})
-	return normalizeMapResult(raw), err
+	result := normalizeMapResult(raw)
+	if err == nil {
+		a.markLoadedSession(sessionId)
+	}
+	return result, err
+}
+
+func (a *AcpAgent) IsSessionLoaded(sessionId string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return sessionId != "" && a.loadedSession == sessionId
+}
+
+func (a *AcpAgent) EnsureLoaded(sessionId, cwd string) error {
+	if sessionId == "" {
+		return fmt.Errorf("sessionId is required")
+	}
+	if a.IsSessionLoaded(sessionId) {
+		return nil
+	}
+	if cwd != "" {
+		a.SetCwd(cwd)
+	}
+	if !a.IsRunning() {
+		if err := a.Start(); err != nil {
+			return err
+		}
+	}
+	if _, err := a.LoadSession(sessionId, cwd); err == nil {
+		return nil
+	} else {
+		log.Printf("[%s] session/load failed; restarting ACP once: %v", a.config.ID, err)
+		a.Stop()
+	}
+
+	if err := a.Start(); err != nil {
+		return err
+	}
+	if _, err := a.LoadSession(sessionId, cwd); err != nil {
+		a.clearLoadedSession()
+		return err
+	}
+	return nil
+}
+
+func (a *AcpAgent) markLoadedSession(sessionId string) {
+	a.mu.Lock()
+	a.loadedSession = sessionId
+	a.mu.Unlock()
+}
+
+func (a *AcpAgent) clearLoadedSession() {
+	a.mu.Lock()
+	a.loadedSession = ""
+	a.mu.Unlock()
 }
 
 func (a *AcpAgent) Prompt(sessionId, text string, images []string) (map[string]interface{}, error) {
-	promptContent := []interface{}{
-		map[string]string{"type": "text", "text": text},
+	promptContent := []acpPromptContent{
+		{Type: "text", Text: text},
 	}
 	for _, b64 := range images {
-		promptContent = append(promptContent, map[string]string{
-			"type": "image", "mimeType": "image/jpeg", "data": b64,
+		promptContent = append(promptContent, acpPromptContent{
+			Type: "image", MimeType: "image/jpeg", Data: b64,
 		})
 	}
 
-	raw, err := a.bridge.Send("session/prompt", map[string]interface{}{
-		"sessionId": sessionId,
-		"prompt":    promptContent,
+	raw, err := a.bridge.Send("session/prompt", acpPromptParams{
+		SessionID: sessionId,
+		Prompt:    promptContent,
 	})
 	return normalizeMapResult(raw), err
 }
 
 func (a *AcpAgent) Cancel(sessionId string) error {
-	_, err := a.bridge.Send("session/cancel", map[string]interface{}{"sessionId": sessionId})
+	_, err := a.bridge.Send("session/cancel", acpCancelParams{SessionID: sessionId})
 	return err
 }
 
@@ -206,9 +315,7 @@ func (a *AcpAgent) SetMode(sessionId, modeId string) error {
 	if !a.config.Capabilities.CanSetMode {
 		return &AcpUnsupportedMethodError{Method: "session/setMode"}
 	}
-	_, err := a.bridge.Send("session/setMode", map[string]interface{}{
-		"sessionId": sessionId, "modeId": modeId,
-	})
+	_, err := a.bridge.Send("session/setMode", acpSetModeParams{SessionID: sessionId, ModeID: modeId})
 	return err
 }
 
@@ -216,15 +323,11 @@ func (a *AcpAgent) SetModel(sessionId, modelId string) error {
 	if !a.config.Capabilities.CanSetModel {
 		return &AcpUnsupportedMethodError{Method: "session/setModel"}
 	}
-	_, err := a.bridge.Send("unstable/session/setModel", map[string]interface{}{
-		"sessionId": sessionId, "modelId": modelId,
-	})
+	_, err := a.bridge.Send("unstable/session/setModel", acpSetModelParams{SessionID: sessionId, ModelID: modelId})
 	if err == nil {
 		return nil
 	}
-	_, fallbackErr := a.bridge.Send("session/setModel", map[string]interface{}{
-		"sessionId": sessionId, "modelId": modelId,
-	})
+	_, fallbackErr := a.bridge.Send("session/setModel", acpSetModelParams{SessionID: sessionId, ModelID: modelId})
 	if fallbackErr == nil {
 		return nil
 	}

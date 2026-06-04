@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -59,131 +60,252 @@ func gitCmd(cwd string, args ...string) (string, error) {
 }
 
 func getGitStatus(cwd string) (*GitStatus, error) {
-	branchOut, err := gitCmd(cwd, "branch", "--show-current")
+	out, err := gitCmd(cwd, "status", "--porcelain=v2", "--branch", "-z")
 	if err != nil {
 		return nil, err
 	}
-	branch := strings.TrimSpace(branchOut)
-	if branch == "" {
-		branch = "HEAD"
-	}
+	return parseGitStatusPorcelainV2Z(out), nil
+}
 
-	var ahead, behind int
-	statusSB, _ := gitCmd(cwd, "status", "--porcelain=v2", "--branch")
-	for _, line := range strings.Split(statusSB, "\n") {
-		if strings.HasPrefix(line, "# branch.ab") {
-			parts := strings.Fields(line)
+func parseGitStatusPorcelainV2Z(output string) *GitStatus {
+	status := &GitStatus{Branch: "HEAD", Files: []GitFileStatus{}}
+	files := make([]GitFileStatus, 0)
+	records := strings.Split(output, "\x00")
+	for i := 0; i < len(records); i++ {
+		record := records[i]
+		if record == "" {
+			continue
+		}
+		if strings.HasPrefix(record, "# branch.head ") {
+			branch := strings.TrimSpace(strings.TrimPrefix(record, "# branch.head "))
+			if branch != "" && branch != "(detached)" {
+				status.Branch = branch
+			}
+			continue
+		}
+		if strings.HasPrefix(record, "# branch.ab ") {
+			parts := strings.Fields(strings.TrimPrefix(record, "# branch.ab "))
 			for _, p := range parts {
 				if strings.HasPrefix(p, "+") {
-					ahead, _ = strconv.Atoi(p[1:])
+					status.Ahead, _ = strconv.Atoi(p[1:])
 				} else if strings.HasPrefix(p, "-") {
-					behind, _ = strconv.Atoi(p[1:])
+					status.Behind, _ = strconv.Atoi(p[1:])
 				}
+			}
+			continue
+		}
+
+		switch record[0] {
+		case '?':
+			path := strings.TrimSpace(strings.TrimPrefix(record, "? "))
+			if path != "" {
+				files = append(files, GitFileStatus{Path: path, Status: "untracked", Staged: false})
+			}
+		case '1':
+			parts := strings.SplitN(record, " ", 9)
+			if len(parts) >= 9 {
+				files = appendGitXYStatus(files, parts[1], parts[8])
+			}
+		case '2':
+			parts := strings.SplitN(record, " ", 10)
+			if len(parts) >= 10 {
+				files = appendGitXYStatus(files, parts[1], parts[9])
+			}
+			if i+1 < len(records) {
+				i++
+			}
+		case 'u':
+			parts := strings.SplitN(record, " ", 11)
+			if len(parts) >= 11 {
+				files = append(files, GitFileStatus{Path: parts[10], Status: "conflicted", Staged: false})
 			}
 		}
 	}
+	status.Files = files
+	return status
+}
 
-	porcelain, err := gitCmd(cwd, "status", "--porcelain")
-	if err != nil {
-		return nil, err
+func appendGitXYStatus(files []GitFileStatus, xy, path string) []GitFileStatus {
+	if len(xy) < 2 || path == "" {
+		return files
 	}
-
-	files := make([]GitFileStatus, 0)
-	for _, line := range strings.Split(strings.TrimSpace(porcelain), "\n") {
-		if len(line) < 4 {
-			continue
-		}
-		x := line[0]
-		y := line[1]
-		path := strings.TrimSpace(line[3:])
-
-		if strings.Contains(path, " -> ") {
-			parts := strings.SplitN(path, " -> ", 2)
-			path = parts[1]
-		}
-
-		status := "modified"
-		staged := false
-
-		switch {
-		case x == '?' && y == '?':
-			status = "untracked"
-		case x == 'A':
-			status = "added"
-			staged = true
-		case x == 'D' || y == 'D':
-			status = "deleted"
-			staged = x == 'D'
-		case x == 'R':
-			status = "renamed"
-			staged = true
-		case x == 'M':
-			staged = true
-		}
-
-		if y == 'M' && x != ' ' {
-			files = append(files, GitFileStatus{Path: path, Status: status, Staged: true})
-			files = append(files, GitFileStatus{Path: path, Status: "modified", Staged: false})
-			continue
-		}
-
-		files = append(files, GitFileStatus{Path: path, Status: status, Staged: staged})
+	x := xy[0]
+	y := xy[1]
+	if x != '.' && x != ' ' {
+		files = append(files, GitFileStatus{Path: path, Status: gitStatusName(x), Staged: true})
 	}
+	if y != '.' && y != ' ' {
+		files = append(files, GitFileStatus{Path: path, Status: gitStatusName(y), Staged: false})
+	}
+	return files
+}
 
-	return &GitStatus{Branch: branch, Ahead: ahead, Behind: behind, Files: files}, nil
+func gitStatusName(code byte) string {
+	switch code {
+	case 'A':
+		return "added"
+	case 'D':
+		return "deleted"
+	case 'R':
+		return "renamed"
+	case 'C':
+		return "copied"
+	case 'U':
+		return "conflicted"
+	default:
+		return "modified"
+	}
 }
 
 var hunkRe = regexp.MustCompile(`^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@`)
 
 func parseDiff(diffText string) []GitDiff {
 	diffs := make([]GitDiff, 0)
-	chunks := strings.Split(diffText, "diff --git ")
-	for _, chunk := range chunks {
-		if chunk == "" {
-			continue
-		}
-		lines := strings.Split(chunk, "\n")
-		headerParts := strings.SplitN(lines[0], " b/", 2)
-		if len(headerParts) < 2 {
-			continue
-		}
-		filePath := headerParts[1]
+	var currentDiff *GitDiff
+	var currentHunk *DiffHunk
 
-		hunks := make([]DiffHunk, 0)
-		var current *DiffHunk
-		for _, line := range lines {
-			m := hunkRe.FindStringSubmatch(line)
-			if m != nil {
-				if current != nil {
-					hunks = append(hunks, *current)
-				}
-				oldStart, _ := strconv.Atoi(m[1])
-				oldLines := 1
-				if m[2] != "" {
-					oldLines, _ = strconv.Atoi(m[2])
-				}
-				newStart, _ := strconv.Atoi(m[3])
-				newLines := 1
-				if m[4] != "" {
-					newLines, _ = strconv.Atoi(m[4])
-				}
-				current = &DiffHunk{
-					OldStart: oldStart, OldLines: oldLines,
-					NewStart: newStart, NewLines: newLines,
-					Content: line + "\n",
-				}
-			} else if current != nil && (strings.HasPrefix(line, "+") || strings.HasPrefix(line, "-") || strings.HasPrefix(line, " ")) {
-				current.Content += line + "\n"
+	flushHunk := func() {
+		if currentDiff != nil && currentHunk != nil {
+			currentDiff.Hunks = append(currentDiff.Hunks, *currentHunk)
+			currentHunk = nil
+		}
+	}
+	flushDiff := func() {
+		flushHunk()
+		if currentDiff != nil {
+			diffs = append(diffs, *currentDiff)
+			currentDiff = nil
+		}
+	}
+
+	for _, line := range strings.Split(diffText, "\n") {
+		if strings.HasPrefix(line, "diff --git ") {
+			flushDiff()
+			currentDiff = &GitDiff{Path: parseDiffGitHeaderPath(line)}
+			continue
+		}
+		if currentDiff == nil {
+			continue
+		}
+		if strings.HasPrefix(line, "+++ ") {
+			if path := parseDiffFileHeaderPath(line, "+++ ", "b/"); path != "" {
+				currentDiff.Path = path
 			}
 		}
-		if current != nil {
-			hunks = append(hunks, *current)
+
+		m := hunkRe.FindStringSubmatch(line)
+		if m != nil {
+			flushHunk()
+			oldStart, _ := strconv.Atoi(m[1])
+			oldLines := 1
+			if m[2] != "" {
+				oldLines, _ = strconv.Atoi(m[2])
+			}
+			newStart, _ := strconv.Atoi(m[3])
+			newLines := 1
+			if m[4] != "" {
+				newLines, _ = strconv.Atoi(m[4])
+			}
+			currentHunk = &DiffHunk{
+				OldStart: oldStart, OldLines: oldLines,
+				NewStart: newStart, NewLines: newLines,
+				Content: line + "\n",
+			}
+			continue
 		}
-		diffs = append(diffs, GitDiff{Path: filePath, Hunks: hunks})
+
+		if currentHunk != nil && isDiffHunkLine(line) {
+			currentHunk.Content += line + "\n"
+		}
 	}
+
+	flushDiff()
 	return diffs
 }
 
+func isDiffHunkLine(line string) bool {
+	return strings.HasPrefix(line, "+") ||
+		strings.HasPrefix(line, "-") ||
+		strings.HasPrefix(line, " ") ||
+		strings.HasPrefix(line, `\`)
+}
+
+func parseDiffGitHeaderPath(line string) string {
+	fields := splitGitHeaderFields(strings.TrimPrefix(line, "diff --git "))
+	if len(fields) >= 2 {
+		return stripGitDiffPathPrefix(fields[1], "b/")
+	}
+	if len(fields) == 1 {
+		return stripGitDiffPathPrefix(fields[0], "a/")
+	}
+	return ""
+}
+
+func parseDiffFileHeaderPath(line, prefix, pathPrefix string) string {
+	path := strings.TrimSpace(strings.TrimPrefix(line, prefix))
+	if tab := strings.IndexByte(path, '\t'); tab >= 0 {
+		path = path[:tab]
+	}
+	path = decodeGitQuotedPath(path)
+	if path == "/dev/null" {
+		return ""
+	}
+	return stripGitDiffPathPrefix(path, pathPrefix)
+}
+
+func splitGitHeaderFields(value string) []string {
+	var fields []string
+	for len(value) > 0 {
+		value = strings.TrimLeft(value, " ")
+		if value == "" {
+			break
+		}
+		if value[0] == '"' {
+			end := 1
+			escaped := false
+			for end < len(value) {
+				ch := value[end]
+				if escaped {
+					escaped = false
+				} else if ch == '\\' {
+					escaped = true
+				} else if ch == '"' {
+					end++
+					break
+				}
+				end++
+			}
+			fields = append(fields, decodeGitQuotedPath(value[:end]))
+			value = value[end:]
+			continue
+		}
+		next := strings.IndexByte(value, ' ')
+		if next < 0 {
+			fields = append(fields, value)
+			break
+		}
+		fields = append(fields, value[:next])
+		value = value[next+1:]
+	}
+	return fields
+}
+
+func decodeGitQuotedPath(path string) string {
+	if strings.HasPrefix(path, `"`) && strings.HasSuffix(path, `"`) {
+		if decoded, err := strconv.Unquote(path); err == nil {
+			return decoded
+		}
+	}
+	return path
+}
+
+func stripGitDiffPathPrefix(path, prefix string) string {
+	path = decodeGitQuotedPath(strings.TrimSpace(path))
+	if strings.HasPrefix(path, prefix) {
+		return strings.TrimPrefix(path, prefix)
+	}
+	return path
+}
 func getGitDiff(cwd string, filePath string) ([]GitDiff, error) {
 	args := []string{"diff"}
 	if filePath != "" {
@@ -210,29 +332,31 @@ func getGitDiffStaged(cwd string, filePath string) ([]GitDiff, error) {
 
 func getGitLog(cwd string, count int) ([]GitLogEntry, error) {
 	out, err := gitCmd(cwd, "log", fmt.Sprintf("--max-count=%d", count),
-		"--format=%H%n%h%n%s%n%an%n%aI%n---")
+		"--format=%H%x1f%h%x1f%s%x1f%an%x1f%aI%x1e")
 	if err != nil {
 		return nil, err
 	}
+	return parseGitLog(out), nil
+}
 
+func parseGitLog(output string) []GitLogEntry {
 	entries := make([]GitLogEntry, 0)
-	blocks := strings.Split(strings.TrimSpace(out), "---\n")
+	blocks := strings.Split(output, "\x1e")
 	for _, block := range blocks {
-		lines := strings.SplitN(strings.TrimSpace(block), "\n", 5)
-		if len(lines) < 5 {
+		fields := strings.Split(block, "\x1f")
+		if len(fields) < 5 {
 			continue
 		}
 		entries = append(entries, GitLogEntry{
-			Hash:      lines[0],
-			HashShort: lines[1],
-			Message:   lines[2],
-			Author:    lines[3],
-			Date:      lines[4],
+			Hash:      strings.TrimSpace(fields[0]),
+			HashShort: strings.TrimSpace(fields[1]),
+			Message:   fields[2],
+			Author:    fields[3],
+			Date:      strings.TrimSpace(fields[4]),
 		})
 	}
-	return entries, nil
+	return entries
 }
-
 func getGitFileDiff(cwd, commitHash, filePath string) ([]GitDiff, error) {
 	args := []string{"diff", commitHash + "^", commitHash}
 	if filePath != "" {
@@ -251,18 +375,24 @@ func getGitDiffHead(cwd string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	untracked, _ := gitCmd(gitRoot, "ls-files", "--others", "--exclude-standard")
-	files := make([]string, 0)
-	for _, f := range strings.Split(strings.TrimSpace(untracked), "\n") {
-		if f != "" {
-			files = append(files, f)
-		}
-	}
+	untracked, _ := gitCmd(gitRoot, "ls-files", "--others", "--exclude-standard", "-z")
+	files := splitNULList(untracked)
+	sort.Strings(files)
 	return map[string]interface{}{
 		"diff":           diff,
 		"untrackedFiles": files,
 		"gitRoot":        gitRoot,
 	}, nil
+}
+
+func splitNULList(output string) []string {
+	items := make([]string, 0)
+	for _, item := range strings.Split(output, "\x00") {
+		if item != "" {
+			items = append(items, item)
+		}
+	}
+	return items
 }
 
 func findGitRoot(startDir string) string {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,9 +17,11 @@ import (
 type AgentBridge struct {
 	mu          sync.Mutex
 	cmd         *exec.Cmd
+	processDone chan struct{}
+	generation  uint64
 	stdin       *json.Encoder
 	requestID   int
-	pending     map[interface{}]chan agentResult
+	pending     map[agentRequestKey]chan agentResult
 	initialized bool
 
 	// Callbacks set by the server
@@ -29,6 +32,11 @@ type AgentBridge struct {
 type agentResult struct {
 	Result interface{}
 	Error  *RpcError
+}
+
+type agentRequestKey struct {
+	Generation uint64
+	ID         interface{}
 }
 
 type agentMessage struct {
@@ -42,7 +50,7 @@ type agentMessage struct {
 
 func NewAgentBridge() *AgentBridge {
 	return &AgentBridge{
-		pending: make(map[interface{}]chan agentResult),
+		pending: make(map[agentRequestKey]chan agentResult),
 	}
 }
 
@@ -88,10 +96,14 @@ func (b *AgentBridge) StartProcess(command string, args []string, cwd string, en
 	log.Printf("[agent] spawned: %s %v (pid=%d)", command, args, cmd.Process.Pid)
 
 	b.mu.Lock()
+	b.generation++
+	generation := b.generation
 	b.cmd = cmd
+	b.processDone = make(chan struct{})
 	b.stdin = json.NewEncoder(stdinPipe)
-	b.pending = make(map[interface{}]chan agentResult)
+	b.pending = make(map[agentRequestKey]chan agentResult)
 	b.initialized = false
+	done := b.processDone
 	b.mu.Unlock()
 
 	go func() {
@@ -115,7 +127,7 @@ func (b *AgentBridge) StartProcess(command string, args []string, cwd string, en
 				log.Printf("[agent:stdout] %s", line)
 				continue
 			}
-			b.handleMessage(msg)
+			b.handleMessage(generation, msg)
 		}
 		log.Printf("[agent] stdout reader ended")
 	}()
@@ -124,11 +136,17 @@ func (b *AgentBridge) StartProcess(command string, args []string, cwd string, en
 		err := cmd.Wait()
 		log.Printf("[agent] process exited: %v", err)
 		b.mu.Lock()
-		for _, ch := range b.pending {
-			ch <- agentResult{Error: &RpcError{Code: -1, Message: "agent process terminated"}}
+		if b.generation == generation {
+			for _, ch := range b.pending {
+				ch <- agentResult{Error: &RpcError{Code: -1, Message: "agent process terminated"}}
+			}
+			b.pending = make(map[agentRequestKey]chan agentResult)
+			b.cmd = nil
+			b.stdin = nil
+			b.initialized = false
 		}
-		b.pending = make(map[interface{}]chan agentResult)
 		b.mu.Unlock()
+		close(done)
 	}()
 
 	return nil
@@ -155,7 +173,9 @@ func (b *AgentBridge) Start(command string, args []string, cwd string) error {
 	if err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
+	b.mu.Lock()
 	b.initialized = true
+	b.mu.Unlock()
 
 	b.mu.Lock()
 	_ = b.stdin.Encode(map[string]interface{}{"jsonrpc": "2.0", "method": "initialized"})
@@ -167,6 +187,8 @@ func (b *AgentBridge) Start(command string, args []string, cwd string) error {
 func (b *AgentBridge) Stop() {
 	b.mu.Lock()
 	cmd := b.cmd
+	done := b.processDone
+	generation := b.generation
 	b.mu.Unlock()
 
 	if cmd == nil || cmd.Process == nil {
@@ -174,11 +196,6 @@ func (b *AgentBridge) Stop() {
 	}
 
 	_ = cmd.Process.Kill()
-	done := make(chan struct{})
-	go func() {
-		_ = cmd.Wait()
-		close(done)
-	}()
 
 	select {
 	case <-done:
@@ -186,13 +203,26 @@ func (b *AgentBridge) Stop() {
 	}
 
 	b.mu.Lock()
-	b.cmd = nil
-	b.stdin = nil
-	b.initialized = false
+	if b.generation == generation {
+		for _, ch := range b.pending {
+			ch <- agentResult{Error: &RpcError{Code: -1, Message: "agent process stopped"}}
+		}
+		b.pending = make(map[agentRequestKey]chan agentResult)
+		b.cmd = nil
+		b.stdin = nil
+		b.initialized = false
+		b.processDone = nil
+	}
 	b.mu.Unlock()
 }
 
 func (b *AgentBridge) Send(method string, params interface{}) (interface{}, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	return b.SendContext(ctx, method, params)
+}
+
+func (b *AgentBridge) SendContext(ctx context.Context, method string, params interface{}) (interface{}, error) {
 	if !b.IsRunning() {
 		return nil, fmt.Errorf("agent is not running")
 	}
@@ -200,8 +230,10 @@ func (b *AgentBridge) Send(method string, params interface{}) (interface{}, erro
 	b.mu.Lock()
 	b.requestID++
 	id := b.requestID
+	generation := b.generation
+	key := agentRequestKey{Generation: generation, ID: float64(id)}
 	ch := make(chan agentResult, 1)
-	b.pending[float64(id)] = ch
+	b.pending[key] = ch
 	msg := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      id,
@@ -213,7 +245,7 @@ func (b *AgentBridge) Send(method string, params interface{}) (interface{}, erro
 
 	if err != nil {
 		b.mu.Lock()
-		delete(b.pending, float64(id))
+		delete(b.pending, key)
 		b.mu.Unlock()
 		return nil, fmt.Errorf("write to agent: %w", err)
 	}
@@ -224,11 +256,11 @@ func (b *AgentBridge) Send(method string, params interface{}) (interface{}, erro
 			return nil, fmt.Errorf("Codex error %d: %s", res.Error.Code, res.Error.Message)
 		}
 		return res.Result, nil
-	case <-time.After(10 * time.Minute):
+	case <-ctx.Done():
 		b.mu.Lock()
-		delete(b.pending, float64(id))
+		delete(b.pending, key)
 		b.mu.Unlock()
-		return nil, fmt.Errorf("agent request timed out: %s", method)
+		return nil, fmt.Errorf("agent request failed: %s: %w", method, ctx.Err())
 	}
 }
 
@@ -245,14 +277,22 @@ func (b *AgentBridge) Respond(id interface{}, result interface{}) error {
 	})
 }
 
-func (b *AgentBridge) handleMessage(msg agentMessage) {
+func (b *AgentBridge) handleMessage(generation uint64, msg agentMessage) {
+	b.mu.Lock()
+	currentGeneration := b.generation
+	b.mu.Unlock()
+	if generation != currentGeneration {
+		return
+	}
+
 	// Response to our request
 	if msg.ID != nil && (msg.Result != nil || msg.Error != nil) {
 		id := parseID(*msg.ID)
+		key := agentRequestKey{Generation: generation, ID: id}
 		b.mu.Lock()
-		ch, ok := b.pending[id]
+		ch, ok := b.pending[key]
 		if ok {
-			delete(b.pending, id)
+			delete(b.pending, key)
 		}
 		b.mu.Unlock()
 		if ok {

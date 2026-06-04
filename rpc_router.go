@@ -7,33 +7,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 func (s *Server) recordCodexEvent(method string, params interface{}) {
-	s.codexMu.Lock()
-	defer s.codexMu.Unlock()
-
-	switch method {
-	case "turn/started":
-		s.codexTurnRunning = true
-		s.codexEvents = s.codexEvents[:0]
-	case "turn/completed", "turn/failed", "turn/aborted", "turn/interrupted":
-		s.codexTurnRunning = false
-	case "thread/started":
-		if id := extractThreadID(params); id != "" {
-			s.codexThreadID = id
-		}
-	}
 	if id := extractThreadID(params); id != "" {
-		s.codexThreadID = id
+		s.persistCodexThreadState(id)
 	}
-
-	s.codexEvents = append(s.codexEvents, cachedNotification{
-		Method: method, Params: params, Time: time.Now().UnixMilli(),
-	})
-	if len(s.codexEvents) > maxCachedNotifications {
-		s.codexEvents = s.codexEvents[len(s.codexEvents)-maxCachedNotifications:]
+	s.recordAgentOperationEvent("codex", method, params)
+	if runtime := s.runtime.CodexRuntime(); runtime != nil {
+		runtime.RecordEvent(method, params)
 	}
 }
 
@@ -56,9 +38,28 @@ func extractThreadID(params interface{}) string {
 }
 
 func (s *Server) switchProject(newRoot string) {
+	s.mu.Lock()
 	s.projectRoot = newRoot
+	s.projectGeneration++
+	generation := s.projectGeneration
+	s.mu.Unlock()
+	if s.eventJournal != nil {
+		if err := s.eventJournal.saveProjectState(newRoot, generation); err != nil {
+			log.Printf("[server] failed to persist project state: %v", err)
+		}
+		if err := s.eventJournal.upsertProject(newRoot, filepath.Base(newRoot), nowUnixMilli()); err != nil {
+			log.Printf("[server] failed to persist project registry entry: %v", err)
+		}
+	}
+	s.gemini.SetCwd(newRoot)
+	s.claude.SetCwd(newRoot)
 	s.cron.Stop()
 	s.cron.Start(newRoot)
+	s.broadcastRecordedEvent("daemon", "project.changed", map[string]interface{}{
+		"root":       newRoot,
+		"projectId":  newRoot,
+		"generation": generation,
+	})
 	log.Printf("[server] switched to project: %s", newRoot)
 }
 
@@ -74,6 +75,8 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 
 func (s *Server) initRoutes() {
 	s.routes["daemon.version"] = s.handleDaemonVersion
+	s.routes["client.hello"] = s.handleClientHello
+	s.routes["events.resume"] = s.handleEventsResume
 	s.routes["daemon.configRead"] = s.handleDaemonConfigRead
 	s.routes["daemon.configWrite"] = s.handleDaemonConfigWrite
 	s.routes["share.create"] = s.handleShareCreate
@@ -105,6 +108,7 @@ func (s *Server) initRoutes() {
 	s.routes["gemini.loadSession"] = s.handleGeminiLoadSession
 	s.routes["gemini.prompt"] = s.handleGeminiPrompt
 	s.routes["gemini.cancel"] = s.handleGeminiCancel
+	s.routes["gemini.taskStatus"] = s.handleGeminiTaskStatus
 	s.routes["gemini.setMode"] = s.handleGeminiSetMode
 	s.routes["gemini.setModel"] = s.handleGeminiSetModel
 	s.routes["gemini.sessionList"] = s.handleGeminiSessionList
@@ -129,17 +133,18 @@ func (s *Server) initRoutes() {
 
 func (s *Server) handleCodexDynamic(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
-	rpcMethod := strings.TrimPrefix(req.Method, "codex.")
-	rpcMethod = strings.Replace(rpcMethod, "thread", "thread/", 1)
-	rpcMethod = strings.Replace(rpcMethod, "turn", "turn/", 1)
-	rpcMethod = strings.Replace(rpcMethod, "model", "model/", 1)
-	rpcMethod = strings.Replace(rpcMethod, "config", "config/", 1)
-	// Reconstruct the correct method names
-	rpcMethod = codexMethodMap(req.Method)
+	rpcMethod := codexMethodMap(req.Method)
 	if params == nil {
 		return s.codex.Send(rpcMethod, map[string]interface{}{})
 	}
-	return s.codex.Send(rpcMethod, params)
+	normalizedParams, _, err := s.normalizeProjectScopedParams(params, false)
+	if err != nil {
+		return nil, err
+	}
+	if normalizedParams == nil {
+		normalizedParams = map[string]interface{}{}
+	}
+	return s.codex.Send(rpcMethod, normalizedParams)
 
 }
 
@@ -213,21 +218,7 @@ func buildClaudeConfigPatch(params map[string]interface{}) ClaudeConfigPatch {
 	return patch
 }
 
-func buildClaudeConfigResponse(claude *ClaudeBridge) map[string]interface{} {
-	config := claude.ConfigSnapshot()
-	caps := claude.Capabilities()
-	return map[string]interface{}{
-		"config":         config,
-		"capabilities":   caps,
-		"model":          config["model"],
-		"effort":         config["effort"],
-		"permissionMode": config["permissionMode"],
-		"sessionModel":   claude.SessionModel(),
-		"sessionMode":    claude.SessionMode(),
-	}
-}
-
-func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}, error) {
+func handleFileChanges(params map[string]interface{}, projectRoot string, reverse bool) (interface{}, error) {
 	changesRaw, ok := params["changes"]
 	if !ok {
 		return map[string]interface{}{"ok": true, "reverted": []string{}, "applied": []string{}}, nil
@@ -247,6 +238,12 @@ func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}
 	var errors []string
 
 	for _, change := range changes {
+		resolvedPath, _, pathErr := resolveProjectPath(projectRoot, change.Path)
+		if pathErr != nil {
+			errors = append(errors, fmt.Sprintf("%s: %s", change.Path, pathErr.Error()))
+			continue
+		}
+
 		kindType := ""
 		if change.Kind != nil {
 			if t, ok := change.Kind["type"].(string); ok {
@@ -277,13 +274,13 @@ func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}
 		if reverse {
 			switch kindType {
 			case "add":
-				if _, serr := os.Stat(change.Path); serr == nil {
-					err = os.Remove(change.Path)
+				if _, serr := os.Stat(resolvedPath); serr == nil {
+					err = os.Remove(resolvedPath)
 				}
 			case "update", "delete":
 				if change.Diff != "" {
-					unified := buildReversibleDiff(change.Path, change.Diff)
-					err = gitApplyReverse(change.Path, unified)
+					unified := buildReversibleDiff(resolvedPath, change.Diff)
+					err = gitApplyReverse(resolvedPath, unified)
 				}
 			}
 		} else {
@@ -296,17 +293,17 @@ func handleFileChanges(params map[string]interface{}, reverse bool) (interface{}
 						content = append(content, l[1:])
 					}
 				}
-				dir := filepath.Dir(change.Path)
+				dir := filepath.Dir(resolvedPath)
 				_ = os.MkdirAll(dir, 0755)
-				err = os.WriteFile(change.Path, []byte(strings.Join(content, "\n")), 0644)
+				err = os.WriteFile(resolvedPath, []byte(strings.Join(content, "\n")), 0644)
 			case "update":
 				if change.Diff != "" {
-					unified := buildReversibleDiff(change.Path, change.Diff)
-					err = gitApplyForward(change.Path, unified)
+					unified := buildReversibleDiff(resolvedPath, change.Diff)
+					err = gitApplyForward(resolvedPath, unified)
 				}
 			case "delete":
-				if _, serr := os.Stat(change.Path); serr == nil {
-					err = os.Remove(change.Path)
+				if _, serr := os.Stat(resolvedPath); serr == nil {
+					err = os.Remove(resolvedPath)
 				}
 			}
 		}

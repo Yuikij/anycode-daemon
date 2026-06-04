@@ -112,3 +112,26 @@ func getParamBool(params map[string]interface{}, key string) bool {
 	}
 	return false
 }
+
+func getParamStringSlice(params map[string]interface{}, key string) []string {
+	if params == nil {
+		return nil
+	}
+	raw, ok := params[key]
+	if !ok {
+		return nil
+	}
+	values, ok := raw.([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok || text == "" {
+			continue
+		}
+		result = append(result, text)
+	}
+	return result
+}

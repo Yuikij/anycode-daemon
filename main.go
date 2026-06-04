@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.6.7"
+const Version = "0.6.8"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -188,7 +188,11 @@ func cmdStart(args []string) {
 		log.Printf("[startup] daemon v%s; no upstream proxy configured", Version)
 	}
 
-	server := NewServer(*port, projectRoot, token)
+	server, err := NewServer(*port, projectRoot, token)
+	if err != nil {
+		log.Fatalf("failed to initialize server state: %v", err)
+	}
+	defer server.Close()
 
 	if relayEnabled {
 		server.StartRelay(cfg.RelayURL, cfg.DeviceToken)

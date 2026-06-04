@@ -13,6 +13,8 @@
 ## Communication Protocol
 The Daemon uses a JSON-RPC-like message format over a single WebSocket connection. 
 
+Shared protocol assets now live in `/Users/soukon/code/anycode/protocol`, including versioned JSON Schema and sample payloads for the AnyCode event envelope, `events.resume`, and the `client.hello` / `server.hello` session handshake.
+
 ### WebSocket Connection
 - **Endpoint**: `ws://<host>:<port>/`
 - **Default Port**: `9527`
@@ -54,6 +56,14 @@ Immediately after establishing the WebSocket connection, the client **must** sen
   }
 }
 ```
+
+### Recovery Semantics
+- Broadcast and replayed notifications carry the `AnyCode Event Envelope v1` metadata (`seq`, `agent`, `projectId`, `projectGeneration`, `operationId`, `ts`).
+- `client.hello` returns protocol/session metadata and nests the current resume result so reconnect setup happens in one round trip after auth.
+- `server.hello.capabilities` is the negotiated intersection of the client-requested session capabilities and the daemon-supported set, currently `client.hello` and `project.generation`.
+- `project.generation` controls whether `server.hello.project`, nested resume project payloads, and replayed event envelopes include generation metadata; when it is not negotiated those fields are omitted from the `client.hello` response path.
+- `events.resume` returns `cursorExpired: true` plus a `snapshot` when the requested cursor has fallen out of the retained journal window.
+- Clients should treat `taskStatus` as a fallback when `client.hello` recovery cannot be applied; the primary recovery path is the `client.hello` handshake with nested resume metadata.
 
 ## API Methods Reference
 

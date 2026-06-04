@@ -36,10 +36,12 @@ type FileContent struct {
 }
 
 type ProjectInfo struct {
-	Name      string `json:"name"`
-	Root      string `json:"root"`
-	IsGit     bool   `json:"isGit"`
-	FileCount int    `json:"fileCount"`
+	Name       string `json:"name"`
+	Root       string `json:"root"`
+	ProjectID  string `json:"projectId,omitempty"`
+	Generation uint64 `json:"generation,omitempty"`
+	IsGit      bool   `json:"isGit"`
+	FileCount  int    `json:"fileCount"`
 }
 
 var languageMap = map[string]string{
@@ -252,6 +254,44 @@ func readAbsoluteFile(filePath string) (*FileContent, error) {
 	}, nil
 }
 
+func resolveProjectPath(rootPath, requestedPath string) (string, string, error) {
+	if rootPath == "" {
+		return "", "", fmt.Errorf("project root is required")
+	}
+
+	rootAbs, err := filepath.Abs(rootPath)
+	if err != nil {
+		return "", "", err
+	}
+	rootAbs = filepath.Clean(rootAbs)
+
+	target := requestedPath
+	if strings.TrimSpace(target) == "" {
+		target = rootAbs
+	} else if !filepath.IsAbs(target) {
+		target = filepath.Join(rootAbs, target)
+	}
+
+	targetAbs, err := filepath.Abs(target)
+	if err != nil {
+		return "", "", err
+	}
+	targetAbs = filepath.Clean(targetAbs)
+
+	rel, err := filepath.Rel(rootAbs, targetAbs)
+	if err != nil {
+		return "", "", fmt.Errorf("path is outside project root")
+	}
+	relSlash := filepath.ToSlash(rel)
+	if rel == ".." || strings.HasPrefix(relSlash, "../") {
+		return "", "", fmt.Errorf("path traversal not allowed")
+	}
+	if rel == "." {
+		rel = ""
+	}
+	return targetAbs, rel, nil
+}
+
 func listDirectory(dirPath, rootPath string) ([]FileEntry, error) {
 	entries, err := os.ReadDir(dirPath)
 	if err != nil {
@@ -317,11 +357,9 @@ func getFileTree(dirPath, rootPath string, depth int) ([]FileEntry, error) {
 }
 
 func readFileContent(filePath, rootPath string) (*FileContent, error) {
-	fullPath := filepath.Join(rootPath, filePath)
-	abs, _ := filepath.Abs(fullPath)
-	absRoot, _ := filepath.Abs(rootPath)
-	if !strings.HasPrefix(abs, absRoot) {
-		return nil, fmt.Errorf("path traversal not allowed")
+	abs, relPath, err := resolveProjectPath(rootPath, filePath)
+	if err != nil {
+		return nil, err
 	}
 
 	info, err := os.Stat(abs)
@@ -342,7 +380,7 @@ func readFileContent(filePath, rootPath string) (*FileContent, error) {
 	}
 	content := string(data)
 	return &FileContent{
-		Path:     filePath,
+		Path:     relPath,
 		Content:  content,
 		Language: detectLanguage(abs),
 		Size:     info.Size(),

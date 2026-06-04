@@ -6,113 +6,118 @@ import (
 )
 
 func (s *Server) handleClaudeStart(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	cwd := getParamString(params, "cwd")
-	if cwd == "" {
-		cwd = s.projectRoot
+	runtime := s.runtime.MustRuntime("claude")
+	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
 	}
-	available := s.claude.CheckAvailable()
-	if available && !s.claude.IsRunning() {
-		if err := s.claude.Start(cwd); err != nil {
+	cwd := context.cwd
+	available := runtime.CheckAvailable()
+	if available && !runtime.IsRunning() {
+		if err := runtime.Start(cwd); err != nil {
 			log.Printf("[claude] start failed: %v", err)
-			resp := buildClaudeConfigResponse(s.claude)
-			resp["ok"] = true
-			resp["available"] = available
-			resp["cwd"] = cwd
-			resp["running"] = false
-			resp["sessionId"] = s.claude.SessionId()
-			resp["error"] = err.Error()
-			return resp, nil
+			return s.runtime.StartResponse("claude", RuntimeStartOptions{Available: available, Cwd: cwd, Error: err}), nil
 		}
 	} else if cwd != "" {
-		s.claude.SetCwd(cwd)
+		runtime.SetCwd(cwd)
 	}
-	resp := buildClaudeConfigResponse(s.claude)
-	resp["ok"] = true
-	resp["available"] = available
-	resp["cwd"] = cwd
-	resp["running"] = s.claude.IsRunning()
-	resp["sessionId"] = s.claude.SessionId()
-	return resp, nil
+	return s.runtime.StartResponse("claude", RuntimeStartOptions{Available: available, Cwd: cwd}), nil
 
 }
 
 func (s *Server) handleClaudeStatus(req RpcRequest, client *wsClient) (interface{}, error) {
-	resp := buildClaudeConfigResponse(s.claude)
-	resp["available"] = s.claude.Available()
-	resp["running"] = s.claude.IsRunning()
-	resp["sessionId"] = s.claude.SessionId()
-	return resp, nil
+	return s.runtime.StatusSnapshot("claude"), nil
 
 }
 
 func (s *Server) handleClaudeSessionList(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	cwd := getParamString(params, "cwd")
-	if cwd == "" {
-		cwd = s.projectRoot
+	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
 	}
-	return s.claude.ListSessions(cwd)
+	result, err := s.claude.ListSessions(context.cwd)
+	if err != nil {
+		return nil, err
+	}
+	return s.runtime.ActionResponse("claude", result), nil
 
 }
 
 func (s *Server) handleClaudeLoadSession(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	sessionId := getParamString(params, "sessionId")
-	cwd := getParamString(params, "cwd")
-	if cwd == "" {
-		cwd = s.projectRoot
+	runtime := s.runtime.MustRuntime("claude")
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
 	}
-	return s.claude.LoadSession(sessionId, cwd)
+	sessionId := getParamString(params, "sessionId")
+	result, err := runtime.LoadSession(sessionId, context.cwd)
+	if err != nil {
+		return nil, err
+	}
+	s.persistRuntimeState("claude")
+	return s.runtime.SessionResponse("claude", result), nil
 
 }
 
 func (s *Server) handleClaudeNewSession(req RpcRequest, client *wsClient) (interface{}, error) {
+	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
+	}
+	s.claude.SetCwd(context.cwd)
 	s.claude.ClearSession()
-	return map[string]bool{"ok": true}, nil
+	s.persistRuntimeState("claude")
+	return s.runtime.SessionResponse("claude", nil), nil
 
 }
 
 func (s *Server) handleClaudeSessionDelete(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
+	}
 	sessionId := getParamString(params, "sessionId")
-	cwd := getParamString(params, "cwd")
 	if sessionId == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
-	if err := s.claude.DeleteSession(sessionId, cwd); err != nil {
+	if err := s.claude.DeleteSession(sessionId, context.cwd); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	s.persistRuntimeState("claude")
+	return s.runtime.ActionResponse("claude", nil), nil
 
 }
 
 func (s *Server) handleClaudeSessionRename(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
+	}
 	sessionId := getParamString(params, "sessionId")
 	title := getParamString(params, "title")
-	cwd := getParamString(params, "cwd")
 	if sessionId == "" {
 		return nil, fmt.Errorf("sessionId is required")
 	}
-	if err := s.claude.RenameSession(sessionId, title, cwd); err != nil {
+	if err := s.claude.RenameSession(sessionId, title, context.cwd); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	return s.runtime.ActionResponse("claude", nil), nil
 
 }
 
 func (s *Server) handleClaudeSetConfig(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
 	s.claude.SetConfig(buildClaudeConfigPatch(params))
-	resp := buildClaudeConfigResponse(s.claude)
-	resp["ok"] = true
-	return resp, nil
+	return s.runtime.ConfigResponse("claude"), nil
 
 }
 
 func (s *Server) handleClaudePrompt(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
+	runtime := s.runtime.MustRuntime("claude")
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
+	}
 	text := getParamString(params, "prompt")
 	if text == "" {
 		text = getParamString(params, "text")
@@ -121,14 +126,12 @@ func (s *Server) handleClaudePrompt(req RpcRequest, client *wsClient) (interface
 		return nil, fmt.Errorf("prompt text is required")
 	}
 	s.claude.SetConfig(buildClaudeConfigPatch(params))
-	if !s.claude.IsRunning() {
-		cwd := getParamString(params, "cwd")
-		if cwd == "" {
-			cwd = s.projectRoot
-		}
-		if err := s.claude.Start(cwd); err != nil {
+	if !runtime.IsRunning() {
+		if err := runtime.Start(context.cwd); err != nil {
 			return nil, fmt.Errorf("failed to start claude: %w", err)
 		}
+	} else {
+		runtime.SetCwd(context.cwd)
 	}
 	var images []string
 	if arr, ok := params["images"].([]interface{}); ok {
@@ -138,30 +141,43 @@ func (s *Server) handleClaudePrompt(req RpcRequest, client *wsClient) (interface
 			}
 		}
 	}
-	if err := s.claude.Prompt(text, images); err != nil {
+	result, err := runtime.Prompt(PromptRequest{Text: text, Images: images})
+	if err != nil {
 		return nil, err
 	}
-	resp := buildClaudeConfigResponse(s.claude)
-	resp["ok"] = true
-	resp["sessionId"] = s.claude.SessionId()
-	return resp, nil
+	s.persistRuntimeState("claude")
+	s.persistAcceptedOperation("claude", result.OperationID)
+	return s.runtime.PromptAcceptedResponse("claude", result), nil
 
 }
 
 func (s *Server) handleClaudeCancel(req RpcRequest, client *wsClient) (interface{}, error) {
-	s.claude.Cancel()
-	return map[string]bool{"ok": true}, nil
+	runtime := s.runtime.MustRuntime("claude")
+	status := runtime.TaskStatus()
+	_ = runtime.Cancel(runtime.SessionID())
+	s.persistRuntimeState("claude")
+	s.persistInterruptedOperation("claude", status)
+	return s.runtime.ActionResponse("claude", nil), nil
 
 }
 
 func (s *Server) handleClaudeStop(req RpcRequest, client *wsClient) (interface{}, error) {
-	s.claude.Stop()
-	return map[string]bool{"ok": true}, nil
+	runtime := s.runtime.MustRuntime("claude")
+	status := runtime.TaskStatus()
+	runtime.Stop()
+	s.persistRuntimeState("claude")
+	s.persistInterruptedOperation("claude", status)
+	return s.runtime.ActionResponse("claude", nil), nil
 
 }
 
 func (s *Server) handleClaudeTaskStatus(req RpcRequest, client *wsClient) (interface{}, error) {
-	return s.claude.TaskStatus(), nil
+	return s.runtime.TaskSnapshot("claude", RuntimeSnapshotOptions{
+		LatestSeq:      s.latestEventSeq(),
+		Project:        s.currentProjectInfo(),
+		LastOperation:  s.latestOperationPayload("claude"),
+		LastPermission: s.latestPermissionPayload("claude"),
+	}), nil
 
 }
 
@@ -173,9 +189,9 @@ func (s *Server) handleClaudePermissionRespond(req RpcRequest, client *wsClient)
 	}
 	optionId := getParamString(params, "optionId")
 	cancelled, _ := params["cancelled"].(bool)
-	if err := s.claude.RespondPermission(requestId, optionId, cancelled); err != nil {
+	if err := s.runtime.ClaudeRuntime().ResolvePermission(requestId, optionId, cancelled); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	return s.runtime.ActionResponse("claude", nil), nil
 
 }

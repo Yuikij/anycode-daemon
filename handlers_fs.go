@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 func (s *Server) handleFsBrowse(req RpcRequest, client *wsClient) (interface{}, error) {
@@ -30,6 +29,9 @@ func (s *Server) handleFsReadAbsolute(req RpcRequest, client *wsClient) (interfa
 
 func (s *Server) handleFsWriteAbsolute(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
+	if err := s.validateExpectedProjectGeneration(params); err != nil {
+		return nil, err
+	}
 	filePath := getParamString(params, "path")
 	content := getParamString(params, "content")
 	if filePath == "" {
@@ -40,16 +42,14 @@ func (s *Server) handleFsWriteAbsolute(req RpcRequest, client *wsClient) (interf
 		return nil, err
 	}
 	return map[string]bool{"ok": true}, nil
-
-	// 闁冲厜鍋撻柍鍏夊亾 Project-scoped operations 闁冲厜鍋撻柍鍏夊亾
 }
 
 func (s *Server) handleFsList(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
 	dirPath := getParamString(params, "path")
-	fullPath := s.projectRoot
-	if dirPath != "" {
-		fullPath = filepath.Join(s.projectRoot, dirPath)
+	fullPath, _, err := resolveProjectPath(s.projectRoot, dirPath)
+	if err != nil {
+		return nil, err
 	}
 	return listDirectory(fullPath, s.projectRoot)
 
@@ -59,9 +59,9 @@ func (s *Server) handleFsTree(req RpcRequest, client *wsClient) (interface{}, er
 	params := getParams(req.Params)
 	dirPath := getParamString(params, "path")
 	depth := getParamInt(params, "depth", 3)
-	fullPath := s.projectRoot
-	if dirPath != "" {
-		fullPath = filepath.Join(s.projectRoot, dirPath)
+	fullPath, _, err := resolveProjectPath(s.projectRoot, dirPath)
+	if err != nil {
+		return nil, err
 	}
 	return getFileTree(fullPath, s.projectRoot, depth)
 

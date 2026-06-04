@@ -201,7 +201,10 @@ func parseClaudeSessionFile(path, fallbackSessionId string, includeItems bool) (
 			var obj map[string]interface{}
 			if err := json.Unmarshal(b, &obj); err == nil {
 				text := claudeMessageText(obj["message"])
-				if text != "" && firstUser == "" {
+				if text == "" {
+					continue
+				}
+				if firstUser == "" {
 					firstUser = text
 				}
 				if includeItems && !seenClaudeUUID(obj, seen) {

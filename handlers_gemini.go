@@ -6,75 +6,74 @@ import (
 )
 
 func (s *Server) handleGeminiStart(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	cwd := getParamString(params, "cwd")
-	if cwd == "" {
-		cwd = s.projectRoot
+	runtime := s.runtime.MustRuntime("gemini")
+	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
 	}
-	s.gemini.SetCwd(cwd)
-	available := s.gemini.CheckAvailable()
-	return map[string]interface{}{
-		"ok": true, "available": available, "cwd": cwd, "acpRunning": s.gemini.IsRunning(),
-	}, nil
+	runtime.SetCwd(context.cwd)
+	available := runtime.CheckAvailable()
+	return s.runtime.StartResponse("gemini", RuntimeStartOptions{Available: available, Cwd: context.cwd}), nil
 
 }
 
 func (s *Server) handleGeminiStatus(req RpcRequest, client *wsClient) (interface{}, error) {
-	return map[string]interface{}{
-		"available": s.gemini.Available(),
-		"running":   s.gemini.IsRunning(),
-	}, nil
+	return s.runtime.StatusSnapshot("gemini"), nil
 
 }
 
 func (s *Server) handleGeminiNewSession(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	cwd := getParamString(params, "cwd")
-	if cwd == "" {
-		cwd = s.projectRoot
-	}
-	if !s.gemini.IsRunning() {
-		s.gemini.SetCwd(cwd)
-		if err := s.gemini.Start(); err != nil {
-			return nil, err
-		}
-	}
-	result, err := s.gemini.NewSession(cwd)
+	runtime := s.runtime.MustRuntime("gemini")
+	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
 	if err != nil {
 		return nil, err
 	}
-	result["ok"] = true
-	return result, nil
+	if !runtime.IsRunning() {
+		runtime.SetCwd(context.cwd)
+		if err := runtime.Start(context.cwd); err != nil {
+			return nil, err
+		}
+	}
+	result, err := runtime.NewSession(context.cwd)
+	if err != nil {
+		return nil, err
+	}
+	s.persistRuntimeState("gemini")
+	return s.runtime.SessionResponse("gemini", result), nil
 
 }
 
 func (s *Server) handleGeminiLoadSession(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	sessionId := getParamString(params, "sessionId")
-	cwd := getParamString(params, "cwd")
-	if sessionId == "" {
-		return nil, fmt.Errorf("sessionId is required")
-	}
-	if cwd == "" {
-		cwd = s.projectRoot
-	}
-	if !s.gemini.IsRunning() {
-		s.gemini.SetCwd(cwd)
-		if err := s.gemini.Start(); err != nil {
-			return nil, err
-		}
-	}
-	result, err := s.gemini.LoadSession(sessionId, cwd)
+	runtime := s.runtime.MustRuntime("gemini")
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
 	if err != nil {
 		return nil, err
 	}
-	result["ok"] = true
-	return result, nil
+	sessionId := getParamString(params, "sessionId")
+	if sessionId == "" {
+		return nil, fmt.Errorf("sessionId is required")
+	}
+	if !runtime.IsRunning() {
+		runtime.SetCwd(context.cwd)
+		if err := runtime.Start(context.cwd); err != nil {
+			return nil, err
+		}
+	}
+	result, err := runtime.LoadSession(sessionId, context.cwd)
+	if err != nil {
+		return nil, err
+	}
+	s.persistRuntimeState("gemini")
+	return s.runtime.SessionResponse("gemini", result), nil
 
 }
 
 func (s *Server) handleGeminiPrompt(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
+	runtime := s.runtime.MustRuntime("gemini")
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
+	}
 	sessionId := getParamString(params, "sessionId")
 	text := getParamString(params, "prompt")
 	if text == "" {
@@ -86,6 +85,7 @@ func (s *Server) handleGeminiPrompt(req RpcRequest, client *wsClient) (interface
 	if text == "" {
 		return nil, fmt.Errorf("prompt text is required")
 	}
+	runtime.SetCwd(context.cwd)
 	var images []string
 	if arr, ok := params["images"].([]interface{}); ok {
 		for _, v := range arr {
@@ -94,22 +94,27 @@ func (s *Server) handleGeminiPrompt(req RpcRequest, client *wsClient) (interface
 			}
 		}
 	}
-	result, err := s.gemini.Prompt(sessionId, text, images)
+	promptResult, err := runtime.Prompt(PromptRequest{SessionID: sessionId, Text: text, Images: images})
 	if err != nil {
 		return nil, err
 	}
-	result["ok"] = true
-	return result, nil
+	s.persistRuntimeState("gemini")
+	s.persistAcceptedOperation("gemini", promptResult.OperationID)
+	return s.runtime.PromptAcceptedResponse("gemini", promptResult), nil
 
 }
 
 func (s *Server) handleGeminiCancel(req RpcRequest, client *wsClient) (interface{}, error) {
+	runtime := s.runtime.MustRuntime("gemini")
+	status := runtime.TaskStatus()
 	params := getParams(req.Params)
 	sessionId := getParamString(params, "sessionId")
 	if sessionId != "" {
-		_ = s.gemini.Cancel(sessionId)
+		_ = runtime.Cancel(sessionId)
 	}
-	return map[string]bool{"ok": true}, nil
+	s.persistRuntimeState("gemini")
+	s.persistInterruptedOperation("gemini", status)
+	return s.runtime.ActionResponse("gemini", nil), nil
 
 }
 
@@ -123,7 +128,7 @@ func (s *Server) handleGeminiSetMode(req RpcRequest, client *wsClient) (interfac
 	if err := s.gemini.SetMode(sessionId, modeId); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	return s.runtime.ActionResponse("gemini", nil), nil
 
 }
 
@@ -137,16 +142,17 @@ func (s *Server) handleGeminiSetModel(req RpcRequest, client *wsClient) (interfa
 	if err := s.gemini.SetModel(sessionId, modelId); err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	return s.runtime.ActionResponse("gemini", nil), nil
 
 }
 
 func (s *Server) handleGeminiSessionList(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	cwd := getParamString(params, "cwd")
-	if cwd != "" {
-		s.gemini.SetCwd(cwd)
+	params, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	if err != nil {
+		return nil, err
 	}
+	_ = params
+	s.gemini.SetCwd(context.cwd)
 	output, err := s.gemini.ListSessions()
 	sessions := ParseGeminiSessionList(output)
 	result := map[string]interface{}{
@@ -156,8 +162,16 @@ func (s *Server) handleGeminiSessionList(req RpcRequest, client *wsClient) (inte
 		log.Printf("[gemini.sessionList] %v", err)
 		result["error"] = err.Error()
 	}
-	return result, nil
+	return s.runtime.ActionResponse("gemini", result), nil
 
 	// 闁冲厜鍋撻柍鍏夊亾 Claude Code integration (ACP mode via claude-code-acp) 闁冲厜鍋撻柍鍏夊亾
 
+}
+
+func (s *Server) handleGeminiTaskStatus(req RpcRequest, client *wsClient) (interface{}, error) {
+	return s.runtime.TaskSnapshot("gemini", RuntimeSnapshotOptions{
+		LatestSeq:     s.latestEventSeq(),
+		Project:       s.currentProjectInfo(),
+		LastOperation: s.latestOperationPayload("gemini"),
+	}), nil
 }

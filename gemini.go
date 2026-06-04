@@ -13,10 +13,15 @@ import (
 )
 
 type GeminiBridge struct {
-	mu             sync.Mutex
-	agent          *AcpAgent
-	cachedSessions string
-	lastCacheTime  time.Time
+	mu                 sync.Mutex
+	agent              *AcpAgent
+	cachedSessions     string
+	lastCacheTime      time.Time
+	currentSession     string
+	taskRunning        bool
+	taskStartedAt      time.Time
+	currentOperationID string
+	lastNotifications  []cachedNotification
 
 	OnNotification func(method string, params interface{})
 }
@@ -51,6 +56,18 @@ func (g *GeminiBridge) SetCwd(cwd string) { g.agent.SetCwd(cwd) }
 func (g *GeminiBridge) IsRunning() bool   { return g.agent.IsRunning() }
 func (g *GeminiBridge) Available() bool   { return g.agent.Available() }
 
+func (g *GeminiBridge) CurrentSessionID() string {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.currentSession
+}
+
+func (g *GeminiBridge) RestoreSession(sessionId string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.currentSession = sessionId
+}
+
 func (g *GeminiBridge) CheckAvailable() bool {
 	return g.agent.CheckAvailable()
 }
@@ -61,24 +78,62 @@ func (g *GeminiBridge) Start() error {
 }
 
 func (g *GeminiBridge) Stop() {
+	g.mu.Lock()
+	g.taskRunning = false
+	g.currentOperationID = ""
+	g.lastNotifications = nil
+	g.mu.Unlock()
 	g.agent.Stop()
 }
 
 func (g *GeminiBridge) NewSession(cwd string) (map[string]interface{}, error) {
 	g.invalidateSessionCache()
-	return g.agent.NewSession(cwd)
+	result, err := g.agent.NewSession(cwd)
+	if err == nil {
+		g.mu.Lock()
+		if sessionID, _ := result["sessionId"].(string); sessionID != "" {
+			g.currentSession = sessionID
+		}
+		g.mu.Unlock()
+	}
+	return result, err
 }
 
 func (g *GeminiBridge) LoadSession(sessionId, cwd string) (map[string]interface{}, error) {
-	return g.agent.LoadSession(sessionId, cwd)
+	result, err := g.agent.LoadSession(sessionId, cwd)
+	if err == nil {
+		g.mu.Lock()
+		g.currentSession = sessionId
+		g.mu.Unlock()
+	}
+	return result, err
 }
 
 func (g *GeminiBridge) Prompt(sessionId, text string, images []string) (map[string]interface{}, error) {
 	g.invalidateSessionCache()
-	return g.agent.Prompt(sessionId, text, images)
+	opID := newOperationID("gemini")
+	g.mu.Lock()
+	g.currentSession = sessionId
+	g.taskRunning = true
+	g.taskStartedAt = time.Now()
+	g.currentOperationID = opID
+	g.lastNotifications = nil
+	g.mu.Unlock()
+	result, err := g.agent.Prompt(sessionId, text, images)
+	if err == nil {
+		result["operationId"] = opID
+	}
+	return result, err
 }
 
 func (g *GeminiBridge) Cancel(sessionId string) error {
+	g.mu.Lock()
+	if sessionId != "" {
+		g.currentSession = sessionId
+	}
+	g.taskRunning = false
+	g.currentOperationID = ""
+	g.mu.Unlock()
 	return g.agent.Cancel(sessionId)
 }
 
@@ -148,8 +203,48 @@ func runGeminiSessionList(cwd string, preferJSON bool) (string, error) {
 }
 
 func (g *GeminiBridge) emit(method string, params interface{}) {
+	g.mu.Lock()
+	payload := attachOperationID(params, g.currentOperationID)
+	if payload, ok := params.(map[string]interface{}); ok {
+		if sessionID, _ := payload["sessionId"].(string); sessionID != "" {
+			g.currentSession = sessionID
+		}
+	}
+	g.lastNotifications = append(g.lastNotifications, cachedNotification{
+		Method: method,
+		Params: payload,
+		Time:   time.Now().UnixMilli(),
+	})
+	if len(g.lastNotifications) > maxCachedNotifications {
+		g.lastNotifications = g.lastNotifications[len(g.lastNotifications)-maxCachedNotifications:]
+	}
+	switch method {
+	case "turn/completed", "turn/failed", "turn/aborted", "turn/interrupted", "error":
+		g.taskRunning = false
+		g.currentOperationID = ""
+	}
+	g.mu.Unlock()
+
 	if g.OnNotification != nil {
-		g.OnNotification(method, params)
+		g.OnNotification(method, payload)
+	}
+}
+
+func (g *GeminiBridge) TaskStatus() map[string]interface{} {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	events := make([]cachedNotification, len(g.lastNotifications))
+	copy(events, g.lastNotifications)
+
+	return map[string]interface{}{
+		"ok":           true,
+		"running":      g.taskRunning,
+		"operationId":  g.currentOperationID,
+		"sessionId":    g.currentSession,
+		"startedAt":    g.taskStartedAt.UnixMilli(),
+		"recentEvents": events,
+		"cwd":          g.agent.Cwd(),
 	}
 }
 

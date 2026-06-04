@@ -143,18 +143,16 @@ func (cm *CronManager) executeJob(jobID string) {
 
 	case "claude":
 		if sessionID == "" {
-			if !cm.server.claude.IsRunning() {
-				_ = cm.server.claude.Start(cm.server.projectRoot)
+			sessionID, err = cm.server.claude.NewSession(cm.server.projectRoot)
+			if err == nil {
+				cm.updateJobSession(jobID, sessionID)
 			}
-			cm.server.claude.ClearSession()
-			sessionID = cm.server.claude.SessionId()
-			cm.updateJobSession(jobID, sessionID)
 		}
 		if sessionID != "" {
 			if cm.server.claude.SessionId() != sessionID {
 				_, _ = cm.server.claude.LoadSession(sessionID, cm.server.projectRoot)
 			}
-			err = cm.server.claude.Prompt(job.Prompt, nil)
+			_, err = cm.server.claude.Prompt(job.Prompt, nil)
 		}
 
 	case "codex":
@@ -238,11 +236,8 @@ func (cm *CronManager) CreateJob(name, agent, sessionID, prompt, expression stri
 	cm.saveJobs()
 	cm.scheduleJob(job)
 
-	// If the job was created with no session, and we are on Gemini or Claude,
-	// maybe we pre-create it? Actually, wait, it's safer to create it on first run or right now.
-	// We'll stick to creating it on first run as implemented in executeJob, but
-	// user plan proposed creating it on creation.
-	// Let's create it on creation to be consistent with the plan.
+	// Pre-create a session when possible so the scheduled job can reuse it on
+	// first execution.
 	if sessionID == "" {
 		go cm.createSessionForJob(id, agent)
 	}
@@ -263,11 +258,7 @@ func (cm *CronManager) createSessionForJob(jobID, agent string) {
 			sessionID = res["sessionId"].(string)
 		}
 	case "claude":
-		if !cm.server.claude.IsRunning() {
-			_ = cm.server.claude.Start(cm.server.projectRoot)
-		}
-		cm.server.claude.ClearSession()
-		sessionID = cm.server.claude.SessionId()
+		sessionID, _ = cm.server.claude.NewSession(cm.server.projectRoot)
 	case "codex":
 		if !cm.server.codex.IsRunning() {
 			_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), cm.server.projectRoot)
