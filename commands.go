@@ -125,7 +125,7 @@ func cmdLogin(args []string) {
 		pollParsed, pollStatus, err := apiRequest(cfg.RelayURL, "POST", "/api/auth/device/poll", map[string]string{
 			"device_code": deviceCode,
 		}, "")
-		
+
 		if err != nil || pollStatus != 200 {
 			if pollStatus == 400 && pollParsed["error"] != nil {
 				fmt.Printf("\n授权失败或已过期：%v\n", pollParsed["error"])
@@ -268,10 +268,11 @@ func apiError(parsed map[string]interface{}, status int) string {
 }
 
 // cmdProxy handles viewing or modifying the proxy configuration:
-//   anycode proxy
-//   anycode proxy get
-//   anycode proxy set <url>
-//   anycode proxy clear
+//
+//	anycode proxy
+//	anycode proxy get
+//	anycode proxy set <url>
+//	anycode proxy clear
 func cmdProxy(args []string) {
 	if len(args) == 0 || args[0] == "get" {
 		cfg := LoadConfig()

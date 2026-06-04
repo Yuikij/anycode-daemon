@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRewriteTextResponseRewritesInlineCSSRootRefsInHTML(t *testing.T) {
@@ -77,5 +78,39 @@ func TestStripProxyCookiesRemovesAnyCodePlatformCookies(t *testing.T) {
 	}
 	if !strings.Contains(cookie, "target_cookie=kept") {
 		t.Fatalf("target cookie was not preserved: %s", cookie)
+	}
+}
+
+func TestBuildClaudeConfigPatchUsesCanonicalDefaults(t *testing.T) {
+	patch := buildClaudeConfigPatch(map[string]interface{}{
+		"model":          "",
+		"effort":         "",
+		"permissionMode": nil,
+	})
+	bridge := NewClaudeBridge()
+	bridge.SetConfig(patch)
+	config := bridge.ConfigSnapshot()
+	if config["model"] != "default" {
+		t.Fatalf("expected default model, got %#v", config["model"])
+	}
+	if config["effort"] != "medium" {
+		t.Fatalf("expected medium effort, got %#v", config["effort"])
+	}
+	if config["permissionMode"] != "default" {
+		t.Fatalf("expected default permission mode, got %#v", config["permissionMode"])
+	}
+}
+
+func TestClaudeTaskStatusSortsPendingPermissions(t *testing.T) {
+	bridge := NewClaudeBridge()
+	bridge.pendingPerms["later"] = &pendingPermission{requestId: "later", toolName: "later", createdAt: time.Unix(20, 0)}
+	bridge.pendingPerms["earlier"] = &pendingPermission{requestId: "earlier", toolName: "earlier", createdAt: time.Unix(10, 0)}
+	status := bridge.TaskStatus()
+	perms := status["pendingPerms"].([]map[string]interface{})
+	if len(perms) != 2 {
+		t.Fatalf("expected 2 pending perms, got %d", len(perms))
+	}
+	if perms[0]["requestId"] != "earlier" || perms[1]["requestId"] != "later" {
+		t.Fatalf("unexpected order: %#v", perms)
 	}
 }

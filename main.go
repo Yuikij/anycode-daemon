@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.3.4"
+const Version = "0.6.7"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -180,6 +180,12 @@ func cmdStart(args []string) {
 	if daemonized {
 		_ = writePidFile(os.Getpid())
 		defer removePidFile()
+	}
+
+	if cfg.Proxy != "" {
+		log.Printf("[startup] daemon v%s; upstream proxy=%s (loopback/LAN targets bypass it)", Version, cfg.Proxy)
+	} else {
+		log.Printf("[startup] daemon v%s; no upstream proxy configured", Version)
 	}
 
 	server := NewServer(*port, projectRoot, token)

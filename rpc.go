@@ -76,6 +76,23 @@ func getParamString(params map[string]interface{}, key string) string {
 	return ""
 }
 
+func getOptionalParamString(params map[string]interface{}, key string) (*string, bool) {
+	if params == nil {
+		return nil, false
+	}
+	raw, ok := params[key]
+	if !ok {
+		return nil, false
+	}
+	if raw == nil {
+		return nil, true
+	}
+	if v, ok := raw.(string); ok {
+		return &v, true
+	}
+	return nil, true
+}
+
 func getParamInt(params map[string]interface{}, key string, fallback int) int {
 	if params == nil {
 		return fallback

@@ -37,6 +37,10 @@ func NewGeminiBridge() *GeminiBridge {
 			Env:                    []string{"GEMINI_CLI_TRUST_WORKSPACE=true", "TERM=dumb"},
 			AuthMethods:            []string{"oauth-personal", "gemini-api-key", "vertex-ai", "gateway"},
 			AutoApprovePermissions: true,
+			Capabilities: AcpCapabilities{
+				CanSetModel: true,
+				CanSetMode:  true,
+			},
 		}),
 	}
 	g.agent.OnNotification = g.emit
@@ -331,39 +335,4 @@ func looksLikeSessionID(value string) bool {
 		return false
 	}
 	return strings.ContainsAny(value, "-_:") || regexp.MustCompile(`^[A-Fa-f0-9]+$`).MatchString(value)
-}
-
-func firstString(obj map[string]interface{}, keys ...string) string {
-	for _, key := range keys {
-		if val, ok := obj[key]; ok {
-			if s, ok := val.(string); ok && strings.TrimSpace(s) != "" {
-				return strings.TrimSpace(s)
-			}
-		}
-	}
-	return ""
-}
-
-func firstInt(obj map[string]interface{}, fallback int, keys ...string) int {
-	for _, key := range keys {
-		switch val := obj[key].(type) {
-		case int:
-			return val
-		case int64:
-			return int(val)
-		case float64:
-			return int(val)
-		case json.Number:
-			i, err := val.Int64()
-			if err == nil {
-				return int(i)
-			}
-		case string:
-			i, err := strconv.Atoi(strings.TrimSpace(val))
-			if err == nil {
-				return i
-			}
-		}
-	}
-	return fallback
 }

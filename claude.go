@@ -1,22 +1,18 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 )
 
-// maxCachedNotifications bounds the ring buffer of recent notifications we
-// keep for replay when the iOS app reconnects mid-turn (e.g. after a
-// force-quit). Sized generously so a long in-progress turn can still be
-// reconstructed on the client.
+// maxCachedNotifications bounds the current-turn replay buffer we keep for
+// reconnect recovery while a Claude task is in flight.
 const maxCachedNotifications = 300
 
 // cachedNotification stores a single notification for replay after
@@ -37,14 +33,19 @@ type ClaudeBridge struct {
 
 	agent *AcpAgent
 
-	// Per-session config (mirrors what the iOS UI exposes). These are
-	// applied via session/setModel + session/setMode when a prompt is
-	// dispatched, mirroring how GeminiBridge handles config.
+	// Selected Claude config from the UI. These are daemon-owned preferences /
+	// policies, not guaranteed live ACP session mutations.
 	cwd            string
 	currentSession string
-	model          string
-	effort         string // kept for UI compat (claude SDK uses "max_thinking_tokens" etc; surfaced as info only)
-	mode           string
+	selectedModel  string
+	selectedEffort string
+	selectedMode   string
+
+	// Last metadata observed for the active session (typically parsed from
+	// JSONL history or emitted by Claude), kept separate from the selected UI
+	// config so loading an old session doesn't silently overwrite the picker.
+	sessionModel string
+	sessionMode  string
 
 	// Pending permission requests awaiting user decision via
 	// claude.permission/respond. Keyed by requestId (the daemon-generated
@@ -67,12 +68,14 @@ type ClaudeBridge struct {
 // id (so we know who to respond to) and the parsed option list (so we
 // can validate the user's selection).
 type pendingPermission struct {
+	requestId string
 	acpID     interface{}
 	options   []interface{}
 	timer     *time.Timer
 	sessionId string
 	toolName  string
 	toolCall  map[string]interface{}
+	createdAt time.Time
 }
 
 // acpCommand is the ACP bridge binary. It can be overridden via the
@@ -86,9 +89,9 @@ func claudeAcpCommand() string {
 
 func NewClaudeBridge() *ClaudeBridge {
 	c := &ClaudeBridge{
-		mode:         "default",
-		effort:       "medium",
-		pendingPerms: make(map[string]*pendingPermission),
+		selectedMode:   "default",
+		selectedEffort: "medium",
+		pendingPerms:   make(map[string]*pendingPermission),
 	}
 	c.agent = NewAcpAgent(AcpAgentConfig{
 		ID:          "claude",
@@ -97,6 +100,10 @@ func NewClaudeBridge() *ClaudeBridge {
 		Args:        nil,
 		Env:         []string{"TERM=dumb"},
 		VersionArgs: []string{"--version"},
+		Capabilities: AcpCapabilities{
+			CanSetModel: false,
+			CanSetMode:  false,
+		},
 		// We handle permission requests ourselves via OnPermissionRequest
 		// (auto-approving for bypass/dontAsk modes, forwarding to the iOS
 		// UI otherwise), so leave the blanket auto-approve off.
@@ -115,8 +122,8 @@ func NewClaudeBridge() *ClaudeBridge {
 		}
 		c.emit(method, params)
 
-		// Detect turn/completed to clear taskRunning flag.
-		if method == "turn/completed" {
+		// Detect terminal turn states to clear taskRunning.
+		if method == "turn/completed" || method == "turn/failed" || method == "turn/aborted" || method == "turn/interrupted" {
 			c.mu.Lock()
 			c.taskRunning = false
 			c.mu.Unlock()
@@ -139,7 +146,7 @@ func NewClaudeBridge() *ClaudeBridge {
 //     reply we auto-reject so Claude doesn't hang forever.
 func (c *ClaudeBridge) handlePermissionRequest(id interface{}, params map[string]interface{}) {
 	c.mu.Lock()
-	mode := c.mode
+	mode := canonicalClaudePermissionMode(c.selectedMode)
 	c.mu.Unlock()
 
 	if mode == "bypass" || mode == "dontAsk" || mode == "auto" || mode == "acceptEdits" || mode == "bypassPermissions" {
@@ -152,15 +159,12 @@ func (c *ClaudeBridge) handlePermissionRequest(id interface{}, params map[string
 			})
 			return
 		}
-		// No options at all — best-effort cancel so claude-code-acp
-		// doesn't deadlock waiting on a reply.
 		_ = c.agent.Respond(id, map[string]interface{}{
 			"outcome": map[string]interface{}{"outcome": "cancelled"},
 		})
 		return
 	}
 
-	// Forward to the iOS UI.
 	requestId := fmt.Sprintf("perm-%d", time.Now().UnixNano())
 	options, _ := params["options"].([]interface{})
 	sessionId, _ := params["sessionId"].(string)
@@ -170,42 +174,49 @@ func (c *ClaudeBridge) handlePermissionRequest(id interface{}, params map[string
 		toolName, _ = toolCall["name"].(string)
 	}
 
+	createdAt := time.Now()
 	pending := &pendingPermission{
+		requestId: requestId,
 		acpID:     id,
 		options:   options,
 		sessionId: sessionId,
 		toolName:  toolName,
 		toolCall:  toolCall,
+		createdAt: createdAt,
 	}
 	pending.timer = time.AfterFunc(5*time.Minute, func() {
-		c.resolvePermission(requestId, "", true)
+		c.resolvePermission(requestId, "", true, "timeout")
 	})
 
 	c.mu.Lock()
 	c.pendingPerms[requestId] = pending
 	c.mu.Unlock()
 
-	notif := map[string]interface{}{
+	c.emit("permission/request", map[string]interface{}{
 		"requestId": requestId,
 		"sessionId": sessionId,
 		"toolName":  toolName,
 		"toolCall":  toolCall,
 		"options":   options,
-	}
-	c.emit("permission/request", notif)
+		"createdAt": createdAt.UnixMilli(),
+	})
 }
 
 // RespondPermission resolves a previously-emitted permission/request. If
 // `cancelled` is true the daemon picks a reject option (falling back to
 // the ACP "cancelled" outcome when no reject option is offered).
 func (c *ClaudeBridge) RespondPermission(requestId, optionId string, cancelled bool) error {
-	if !c.resolvePermission(requestId, optionId, cancelled) {
+	reason := "approved"
+	if cancelled || optionId == "" {
+		reason = "cancelled"
+	}
+	if !c.resolvePermission(requestId, optionId, cancelled, reason) {
 		return fmt.Errorf("no pending permission request: %s", requestId)
 	}
 	return nil
 }
 
-func (c *ClaudeBridge) resolvePermission(requestId, optionId string, cancelled bool) bool {
+func (c *ClaudeBridge) resolvePermission(requestId, optionId string, cancelled bool, reason string) bool {
 	c.mu.Lock()
 	pending, ok := c.pendingPerms[requestId]
 	if ok {
@@ -220,9 +231,10 @@ func (c *ClaudeBridge) resolvePermission(requestId, optionId string, cancelled b
 	}
 
 	paramsMap := map[string]interface{}{"options": pending.options}
-
+	resolution := "approved"
 	var outcome map[string]interface{}
 	if cancelled || optionId == "" {
+		resolution = reason
 		if rejectId, ok := pickAcpRejectOption(paramsMap); ok {
 			outcome = map[string]interface{}{"outcome": "selected", "optionId": rejectId}
 		} else {
@@ -232,7 +244,40 @@ func (c *ClaudeBridge) resolvePermission(requestId, optionId string, cancelled b
 		outcome = map[string]interface{}{"outcome": "selected", "optionId": optionId}
 	}
 	_ = c.agent.Respond(pending.acpID, map[string]interface{}{"outcome": outcome})
+	c.emit("permission/resolved", map[string]interface{}{
+		"requestId":  requestId,
+		"sessionId":  pending.sessionId,
+		"toolName":   pending.toolName,
+		"toolCall":   pending.toolCall,
+		"resolvedAs": resolution,
+	})
 	return true
+}
+
+func (c *ClaudeBridge) clearPendingPermissionsLocked(reason string) []map[string]interface{} {
+	c.mu.Lock()
+	pending := make([]*pendingPermission, 0, len(c.pendingPerms))
+	for requestId, p := range c.pendingPerms {
+		p.requestId = requestId
+		pending = append(pending, p)
+	}
+	c.pendingPerms = make(map[string]*pendingPermission)
+	c.mu.Unlock()
+
+	resolved := make([]map[string]interface{}, 0, len(pending))
+	for _, p := range pending {
+		if p.timer != nil {
+			p.timer.Stop()
+		}
+		resolved = append(resolved, map[string]interface{}{
+			"requestId":  p.requestId,
+			"sessionId":  p.sessionId,
+			"toolName":   p.toolName,
+			"toolCall":   p.toolCall,
+			"resolvedAs": reason,
+		})
+	}
+	return resolved
 }
 
 func (c *ClaudeBridge) SetCwd(cwd string) {
@@ -250,9 +295,54 @@ func (c *ClaudeBridge) SessionId() string {
 	defer c.mu.Unlock()
 	return c.currentSession
 }
-func (c *ClaudeBridge) Model() string  { c.mu.Lock(); defer c.mu.Unlock(); return c.model }
-func (c *ClaudeBridge) Effort() string { c.mu.Lock(); defer c.mu.Unlock(); return c.effort }
-func (c *ClaudeBridge) Mode() string   { c.mu.Lock(); defer c.mu.Unlock(); return c.mode }
+
+func (c *ClaudeBridge) SelectedModel() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.selectedModel
+}
+
+func (c *ClaudeBridge) SelectedEffort() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.selectedEffort
+}
+
+func (c *ClaudeBridge) SelectedMode() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.selectedMode
+}
+
+func (c *ClaudeBridge) SessionModel() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessionModel
+}
+
+func (c *ClaudeBridge) SessionMode() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.sessionMode
+}
+
+func (c *ClaudeBridge) ConfigSnapshot() map[string]interface{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return map[string]interface{}{
+		"model":          canonicalClaudeModel(c.selectedModel),
+		"effort":         canonicalClaudeEffort(c.selectedEffort),
+		"permissionMode": canonicalClaudePermissionMode(c.selectedMode),
+	}
+}
+
+func (c *ClaudeBridge) Capabilities() map[string]bool {
+	caps := c.agent.Capabilities()
+	return map[string]bool{
+		"canSetModel": caps.CanSetModel,
+		"canSetMode":  caps.CanSetMode,
+	}
+}
 
 func (c *ClaudeBridge) CheckAvailable() bool {
 	return c.agent.CheckAvailable()
@@ -278,17 +368,16 @@ func (c *ClaudeBridge) Start(cwd string) error {
 
 func (c *ClaudeBridge) Stop() {
 	c.agent.Stop()
+	resolved := c.clearPendingPermissionsLocked("stopped")
 	c.mu.Lock()
 	c.currentSession = ""
-	// Cancel any in-flight permission prompts so the iOS UI doesn't keep
-	// a stale sheet open after a manual stop.
-	for _, p := range c.pendingPerms {
-		if p.timer != nil {
-			p.timer.Stop()
-		}
-	}
-	c.pendingPerms = make(map[string]*pendingPermission)
+	c.taskRunning = false
+	c.taskStartedAt = time.Time{}
+	c.lastNotifications = nil
 	c.mu.Unlock()
+	for _, notif := range resolved {
+		c.emit("permission/resolved", notif)
+	}
 }
 
 func (c *ClaudeBridge) Cancel() {
@@ -300,32 +389,49 @@ func (c *ClaudeBridge) Cancel() {
 	}
 }
 
-// SetConfig stores the desired model/effort/mode. They are applied to the
-// active session lazily on the next prompt (or now if a session is open).
-func (c *ClaudeBridge) SetConfig(model, effort, mode string) {
-	c.mu.Lock()
-	if model != "" {
-		c.model = model
-	}
-	if effort != "" {
-		c.effort = effort
-	}
-	if mode != "" {
-		c.mode = mode
-	}
-	sid := c.currentSession
-	desiredModel := c.model
-	desiredMode := c.mode
-	c.mu.Unlock()
+type ClaudeConfigPatch struct {
+	Model          *string
+	Effort         *string
+	PermissionMode *string
+}
 
-	if sid == "" || !c.agent.IsRunning() {
-		return
+func canonicalClaudeModel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
 	}
-	if desiredModel != "" && desiredModel != "default" {
-		_ = c.agent.SetModel(sid, desiredModel)
+	return value
+}
+
+func canonicalClaudeEffort(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "medium"
 	}
-	if desiredMode != "" && desiredMode != "default" {
-		_ = c.agent.SetMode(sid, desiredMode)
+	return value
+}
+
+func canonicalClaudePermissionMode(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "default"
+	}
+	return value
+}
+
+// SetConfig stores the desired Claude config/policy. These values are owned by
+// the daemon/UI and are not assumed to map to live ACP session mutations.
+func (c *ClaudeBridge) SetConfig(patch ClaudeConfigPatch) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if patch.Model != nil {
+		c.selectedModel = canonicalClaudeModel(*patch.Model)
+	}
+	if patch.Effort != nil {
+		c.selectedEffort = canonicalClaudeEffort(*patch.Effort)
+	}
+	if patch.PermissionMode != nil {
+		c.selectedMode = canonicalClaudePermissionMode(*patch.PermissionMode)
 	}
 }
 
@@ -345,8 +451,9 @@ func (c *ClaudeBridge) Prompt(text string, images []string) error {
 	c.mu.Lock()
 	sid := c.currentSession
 	cwd := c.cwd
-	desiredModel := c.model
-	desiredMode := c.mode
+	selectedModel := canonicalClaudeModel(c.selectedModel)
+	selectedEffort := canonicalClaudeEffort(c.selectedEffort)
+	selectedMode := canonicalClaudePermissionMode(c.selectedMode)
 	c.mu.Unlock()
 
 	if sid == "" {
@@ -360,30 +467,32 @@ func (c *ClaudeBridge) Prompt(text string, images []string) error {
 		}
 		c.mu.Lock()
 		c.currentSession = newSid
+		c.sessionModel = selectedModel
+		c.sessionMode = selectedMode
 		c.mu.Unlock()
 		sid = newSid
 
-		if desiredModel != "" && desiredModel != "default" {
-			_ = c.agent.SetModel(sid, desiredModel)
-		}
-		if desiredMode != "" && desiredMode != "default" {
-			_ = c.agent.SetMode(sid, desiredMode)
-		}
-
 		c.emit("init", map[string]interface{}{
 			"sessionId": sid,
-			"model":     desiredModel,
+			"cwd":       cwd,
+			"config": map[string]interface{}{
+				"model":          selectedModel,
+				"effort":         selectedEffort,
+				"permissionMode": selectedMode,
+			},
+			"capabilities":   c.Capabilities(),
+			"model":          selectedModel,
+			"effort":         selectedEffort,
+			"permissionMode": selectedMode,
 		})
 	}
 
-	// Mark the task as running before spawning the goroutine.
 	c.mu.Lock()
 	c.taskRunning = true
 	c.taskStartedAt = time.Now()
+	c.lastNotifications = nil
 	c.mu.Unlock()
 
-	// Run the prompt in the background so the WS RPC returns promptly
-	// while the ACP agent streams session/update notifications.
 	go func() {
 		result, err := c.agent.Prompt(sid, text, images)
 		if err != nil {
@@ -396,9 +505,6 @@ func (c *ClaudeBridge) Prompt(text string, images []string) error {
 		c.mu.Lock()
 		c.taskRunning = false
 		c.mu.Unlock()
-		// Forward the ACP prompt result verbatim so the client can surface
-		// any token usage / stop reason it carries (field shapes vary by
-		// agent version, so the client parses it defensively).
 		c.emit("turn/completed", map[string]interface{}{
 			"sessionId": sid,
 			"success":   err == nil,
@@ -421,29 +527,26 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 		c.mu.Unlock()
 	}
 
-	session, items, err := c.readSessionFile(sessionId, cwd)
+	session, items, err := readSessionFile(sessionId, cwd)
 	if err != nil {
 		return nil, err
 	}
 
 	c.mu.Lock()
-	// If a turn is already in flight for this exact session, the live
-	// agent already has it loaded in memory. This happens when the iOS
-	// app reconnects (e.g. after a force-quit) while the background agent
-	// is still working. Touching the agent now (SetCwd / session/load)
-	// could disturb the running turn, so we only read the JSONL history
-	// for display and leave the agent untouched.
 	busy := c.taskRunning && c.currentSession == sessionId
 	c.currentSession = sessionId
 	if cwd != "" {
 		c.cwd = cwd
 	}
 	if model, _ := session["model"].(string); model != "" {
-		c.model = model
+		c.sessionModel = model
 	}
 	if mode, _ := session["permissionMode"].(string); mode != "" {
-		c.mode = mode
+		c.sessionMode = mode
 	}
+	selectedModel := canonicalClaudeModel(c.selectedModel)
+	selectedEffort := canonicalClaudeEffort(c.selectedEffort)
+	selectedMode := canonicalClaudePermissionMode(c.selectedMode)
 	c.mu.Unlock()
 
 	if busy {
@@ -451,10 +554,6 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	} else {
 		c.agent.SetCwd(cwd)
 
-		// Best-effort: start the ACP agent and tell it to resume so future
-		// prompts continue in this session. We don't fail the RPC if either
-		// step errors out — the UI can still browse the JSONL items, and
-		// the next Prompt() call will retry the start.
 		if !c.agent.IsRunning() && c.agent.CheckAvailable() {
 			if err := c.agent.Start(); err != nil {
 				log.Printf("[claude] resume: agent start failed: %v", err)
@@ -469,14 +568,28 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 
 	c.emit("init", map[string]interface{}{
 		"sessionId": sessionId,
-		"model":     session["model"],
 		"cwd":       cwd,
+		"config": map[string]interface{}{
+			"model":          selectedModel,
+			"effort":         selectedEffort,
+			"permissionMode": selectedMode,
+		},
+		"capabilities":   c.Capabilities(),
+		"model":          selectedModel,
+		"effort":         selectedEffort,
+		"permissionMode": selectedMode,
 	})
 
 	return map[string]interface{}{
 		"ok":      true,
 		"session": session,
 		"items":   items,
+		"config": map[string]interface{}{
+			"model":          selectedModel,
+			"effort":         selectedEffort,
+			"permissionMode": selectedMode,
+		},
+		"capabilities": c.Capabilities(),
 	}, nil
 }
 
@@ -496,39 +609,18 @@ func (c *ClaudeBridge) ListSessions(cwd string) (map[string]interface{}, error) 
 }
 
 // ClearSession forgets the current session id so the next Prompt() starts
-// fresh.
+// fresh and clears any pending permission prompts tied to the old turn.
 func (c *ClaudeBridge) ClearSession() {
+	resolved := c.clearPendingPermissionsLocked("cleared")
 	c.mu.Lock()
 	c.currentSession = ""
+	c.taskRunning = false
+	c.taskStartedAt = time.Time{}
+	c.lastNotifications = nil
 	c.mu.Unlock()
-}
-
-// findSessionFilePath locates the on-disk JSONL for a session id, trying the
-// cwd-derived project dir first and then scanning all project dirs (the same
-// resolution `readSessionFile` uses).
-func findSessionFilePath(sessionId, cwd string) (string, error) {
-	if sessionId == "" {
-		return "", fmt.Errorf("sessionId is required")
+	for _, notif := range resolved {
+		c.emit("permission/resolved", notif)
 	}
-	if cwd != "" {
-		primary := filepath.Join(claudeProjectDir(cwd), sessionId+".jsonl")
-		if _, err := os.Stat(primary); err == nil {
-			return primary, nil
-		}
-	}
-	home, _ := os.UserHomeDir()
-	root := filepath.Join(home, ".claude", "projects")
-	entries, _ := os.ReadDir(root)
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		candidate := filepath.Join(root, entry.Name(), sessionId+".jsonl")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-	return "", fmt.Errorf("session file not found: %s", sessionId)
 }
 
 // DeleteSession removes a session's JSONL file from disk.
@@ -576,37 +668,58 @@ func (c *ClaudeBridge) RenameSession(sessionId, title, cwd string) error {
 	return nil
 }
 
-// TaskStatus returns the current task state for the iOS app to query
-// after reconnecting from background.
+// TaskStatus returns the current task state for clients to recover after
+// reconnecting from background or a page refresh.
 func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Build pending permission list for recovery
-	var pendingPermList []map[string]interface{}
+	pending := make([]*pendingPermission, 0, len(c.pendingPerms))
 	for reqId, p := range c.pendingPerms {
+		p.requestId = reqId
+		pending = append(pending, p)
+	}
+	sort.Slice(pending, func(i, j int) bool {
+		return pending[i].createdAt.Before(pending[j].createdAt)
+	})
+
+	pendingPermList := make([]map[string]interface{}, 0, len(pending))
+	for _, p := range pending {
 		pendingPermList = append(pendingPermList, map[string]interface{}{
-			"requestId": reqId,
+			"requestId": p.requestId,
 			"toolName":  p.toolName,
 			"sessionId": p.sessionId,
 			"options":   p.options,
 			"toolCall":  p.toolCall,
+			"createdAt": p.createdAt.UnixMilli(),
 		})
 	}
 
-	// Copy cached notifications for response
 	events := make([]cachedNotification, len(c.lastNotifications))
 	copy(events, c.lastNotifications)
 
+	config := map[string]interface{}{
+		"model":          canonicalClaudeModel(c.selectedModel),
+		"effort":         canonicalClaudeEffort(c.selectedEffort),
+		"permissionMode": canonicalClaudePermissionMode(c.selectedMode),
+	}
+	capabilities := c.Capabilities()
+
 	return map[string]interface{}{
-		"ok":           true,
-		"running":      c.taskRunning,
-		"sessionId":    c.currentSession,
-		"startedAt":    c.taskStartedAt.UnixMilli(),
-		"recentEvents": events,
-		"pendingPerms": pendingPermList,
-		"model":        c.model,
-		"cwd":          c.cwd,
+		"ok":             true,
+		"running":        c.taskRunning,
+		"sessionId":      c.currentSession,
+		"startedAt":      c.taskStartedAt.UnixMilli(),
+		"recentEvents":   events,
+		"pendingPerms":   pendingPermList,
+		"cwd":            c.cwd,
+		"config":         config,
+		"capabilities":   capabilities,
+		"model":          config["model"],
+		"effort":         config["effort"],
+		"permissionMode": config["permissionMode"],
+		"sessionModel":   c.sessionModel,
+		"sessionMode":    c.sessionMode,
 	}
 }
 
@@ -626,305 +739,5 @@ func (c *ClaudeBridge) emit(method string, params interface{}) {
 
 	if c.OnNotification != nil {
 		c.OnNotification(method, params)
-	}
-}
-
-// ────────────────────────────────────────────────────────────────────────
-// Session file parsing (kept verbatim from stream-json mode — these
-// JSONL files are written by the Claude SDK whether you invoke it via
-// stream-json or claude-code-acp, so list/load logic is shared.)
-// ────────────────────────────────────────────────────────────────────────
-
-func (c *ClaudeBridge) readSessionFile(sessionId, cwd string) (map[string]interface{}, []map[string]interface{}, error) {
-	// Try the project dir derived from cwd first.
-	primary := filepath.Join(claudeProjectDir(cwd), sessionId+".jsonl")
-	if _, err := os.Stat(primary); err == nil {
-		return parseClaudeSessionFile(primary, sessionId, true)
-	}
-	// Fall back to scanning all project dirs since the same sessionId is
-	// globally unique — Claude can store it under a different cwd key
-	// than what the iOS app passed in.
-	home, _ := os.UserHomeDir()
-	root := filepath.Join(home, ".claude", "projects")
-	entries, _ := os.ReadDir(root)
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		candidate := filepath.Join(root, entry.Name(), sessionId+".jsonl")
-		if _, err := os.Stat(candidate); err == nil {
-			return parseClaudeSessionFile(candidate, sessionId, true)
-		}
-	}
-	return nil, nil, fmt.Errorf("session file not found: %s", sessionId)
-}
-
-func claudeProjectDir(cwd string) string {
-	home, _ := os.UserHomeDir()
-	clean := filepath.Clean(cwd)
-	key := strings.ReplaceAll(clean, string(os.PathSeparator), "-")
-	return filepath.Join(home, ".claude", "projects", key)
-}
-
-func listClaudeSessionsInDir(projectDir string) ([]map[string]interface{}, error) {
-	entries, err := os.ReadDir(projectDir)
-	if err != nil {
-		return nil, err
-	}
-
-	sessions := []map[string]interface{}{}
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
-			continue
-		}
-		sessionId := strings.TrimSuffix(entry.Name(), ".jsonl")
-		session, _, err := parseClaudeSessionFile(filepath.Join(projectDir, entry.Name()), sessionId, false)
-		if err != nil {
-			log.Printf("[claude.sessionList] parse %s: %v", entry.Name(), err)
-			continue
-		}
-		sessions = append(sessions, session)
-	}
-	return sessions, nil
-}
-
-func listAllClaudeSessions() ([]map[string]interface{}, error) {
-	home, _ := os.UserHomeDir()
-	root := filepath.Join(home, ".claude", "projects")
-	entries, err := os.ReadDir(root)
-	if err != nil {
-		return nil, err
-	}
-
-	sessions := []map[string]interface{}{}
-	seen := map[string]bool{}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		projectSessions, err := listClaudeSessionsInDir(filepath.Join(root, entry.Name()))
-		if err != nil {
-			log.Printf("[claude.sessionList] scan %s: %v", entry.Name(), err)
-			continue
-		}
-		for _, session := range projectSessions {
-			sessionId, _ := session["sessionId"].(string)
-			if sessionId == "" || seen[sessionId] {
-				continue
-			}
-			seen[sessionId] = true
-			sessions = append(sessions, session)
-		}
-	}
-	return sessions, nil
-}
-
-func parseClaudeSessionFile(path, fallbackSessionId string, includeItems bool) (map[string]interface{}, []map[string]interface{}, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer file.Close()
-
-	info, _ := file.Stat()
-	session := map[string]interface{}{
-		"sessionId": fallbackSessionId,
-		"title":     fallbackSessionId,
-		"preview":   "",
-		"cwd":       "",
-		"model":     "",
-	}
-	if info != nil {
-		updated := info.ModTime()
-		session["updatedAt"] = updated.UnixMilli()
-		session["timeAgo"] = humanTimeAgo(updated)
-	}
-
-	items := []map[string]interface{}{}
-	seen := map[string]bool{}
-	firstUser := ""
-	lastPrompt := ""
-	title := ""
-
-	scanner := bufio.NewScanner(file)
-	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
-	for scanner.Scan() {
-		var obj map[string]interface{}
-		if err := json.Unmarshal(scanner.Bytes(), &obj); err != nil {
-			continue
-		}
-
-		if sid, _ := obj["sessionId"].(string); sid != "" {
-			session["sessionId"] = sid
-		}
-		if cwd, _ := obj["cwd"].(string); cwd != "" {
-			session["cwd"] = cwd
-		}
-		if mode, _ := obj["permissionMode"].(string); mode != "" {
-			session["permissionMode"] = mode
-		}
-		if ts, ok := parseClaudeTimestamp(obj["timestamp"]); ok {
-			session["updatedAt"] = ts.UnixMilli()
-			session["timeAgo"] = humanTimeAgo(ts)
-		}
-
-		switch obj["type"] {
-		case "ai-title":
-			if t, _ := obj["aiTitle"].(string); t != "" {
-				title = t
-			}
-		case "last-prompt":
-			if p, _ := obj["lastPrompt"].(string); p != "" {
-				lastPrompt = p
-			}
-		case "user":
-			text := claudeMessageText(obj["message"])
-			if text == "" {
-				continue
-			}
-			if firstUser == "" {
-				firstUser = text
-			}
-			if includeItems && !seenClaudeUUID(obj, seen) {
-				items = append(items, map[string]interface{}{
-					"id":      firstString(obj, "uuid", "promptId"),
-					"type":    "userMessage",
-					"text":    text,
-					"content": []map[string]string{{"type": "text", "text": text}},
-				})
-			}
-		case "assistant":
-			msg, _ := obj["message"].(map[string]interface{})
-			if model, _ := msg["model"].(string); model != "" {
-				session["model"] = model
-			}
-			text, thoughts := claudeAssistantParts(msg)
-			if includeItems && !seenClaudeUUID(obj, seen) {
-				if thoughts != "" {
-					items = append(items, map[string]interface{}{
-						"id":          fmt.Sprintf("%s-thought", firstString(obj, "uuid")),
-						"type":        "reasoning",
-						"summaryText": thoughts,
-						"text":        thoughts,
-					})
-				}
-				if text != "" {
-					items = append(items, map[string]interface{}{
-						"id":   firstString(obj, "uuid"),
-						"type": "agentMessage",
-						"text": text,
-					})
-				}
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, nil, err
-	}
-
-	preview := firstNonEmpty(lastPrompt, firstUser, title, fallbackSessionId)
-	session["title"] = firstNonEmpty(title, preview)
-	session["preview"] = preview
-	return session, items, nil
-}
-
-func claudeMessageText(raw interface{}) string {
-	msg, _ := raw.(map[string]interface{})
-	content := msg["content"]
-	if text, ok := content.(string); ok {
-		return text
-	}
-	arr, _ := content.([]interface{})
-	parts := []string{}
-	for _, item := range arr {
-		block, _ := item.(map[string]interface{})
-		if text, _ := block["text"].(string); text != "" {
-			parts = append(parts, text)
-		}
-	}
-	return strings.Join(parts, "\n")
-}
-
-func claudeAssistantParts(msg map[string]interface{}) (string, string) {
-	arr, _ := msg["content"].([]interface{})
-	textParts := []string{}
-	thoughtParts := []string{}
-	for _, item := range arr {
-		block, _ := item.(map[string]interface{})
-		switch block["type"] {
-		case "text":
-			if text, _ := block["text"].(string); text != "" {
-				textParts = append(textParts, text)
-			}
-		case "thinking":
-			if thought, _ := block["thinking"].(string); thought != "" {
-				thoughtParts = append(thoughtParts, thought)
-			}
-		case "tool_use":
-			if name, _ := block["name"].(string); name != "" {
-				textParts = append(textParts, fmt.Sprintf("Used tool: %s", name))
-			}
-		}
-	}
-	return strings.Join(textParts, "\n\n"), strings.Join(thoughtParts, "\n\n")
-}
-
-func seenClaudeUUID(obj map[string]interface{}, seen map[string]bool) bool {
-	uuid := firstString(obj, "uuid")
-	if uuid == "" {
-		return false
-	}
-	if seen[uuid] {
-		return true
-	}
-	seen[uuid] = true
-	return false
-}
-
-func parseClaudeTimestamp(raw interface{}) (time.Time, bool) {
-	s, _ := raw.(string)
-	if s == "" {
-		return time.Time{}, false
-	}
-	t, err := time.Parse(time.RFC3339Nano, s)
-	return t, err == nil
-}
-
-func humanTimeAgo(t time.Time) string {
-	d := time.Since(t)
-	if d < time.Minute {
-		return "just now"
-	}
-	if d < time.Hour {
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	}
-	if d < 24*time.Hour {
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	}
-	if d < 7*24*time.Hour {
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
-	}
-	return t.Format("Jan 2")
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, v := range values {
-		if strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return ""
-}
-
-func int64Value(v interface{}) int64 {
-	switch n := v.(type) {
-	case int64:
-		return n
-	case int:
-		return int64(n)
-	case float64:
-		return int64(n)
-	default:
-		return 0
 	}
 }

@@ -19,6 +19,36 @@ func TestChooseAcpPermissionOption(t *testing.T) {
 	}
 }
 
+func TestAcpAgentSetModelUnsupportedByCapability(t *testing.T) {
+	agent := NewAcpAgent(AcpAgentConfig{ID: "test", Label: "Test", Command: "test"})
+	err := agent.SetModel("session-1", "opus")
+	if err == nil {
+		t.Fatal("expected unsupported method error")
+	}
+	unsupported, ok := err.(*AcpUnsupportedMethodError)
+	if !ok {
+		t.Fatalf("expected AcpUnsupportedMethodError, got %T", err)
+	}
+	if unsupported.Method != "session/setModel" {
+		t.Fatalf("unexpected method: %s", unsupported.Method)
+	}
+}
+
+func TestAcpAgentSetModeUnsupportedByCapability(t *testing.T) {
+	agent := NewAcpAgent(AcpAgentConfig{ID: "test", Label: "Test", Command: "test"})
+	err := agent.SetMode("session-1", "auto")
+	if err == nil {
+		t.Fatal("expected unsupported method error")
+	}
+	unsupported, ok := err.(*AcpUnsupportedMethodError)
+	if !ok {
+		t.Fatalf("expected AcpUnsupportedMethodError, got %T", err)
+	}
+	if unsupported.Method != "session/setMode" {
+		t.Fatalf("unexpected method: %s", unsupported.Method)
+	}
+}
+
 func TestAcpAgentSessionUpdateNotification(t *testing.T) {
 	agent := NewAcpAgent(AcpAgentConfig{ID: "test", Label: "Test", Command: "test"})
 	var gotMethod string

@@ -8,6 +8,19 @@ import (
 	"sync"
 )
 
+type AcpCapabilities struct {
+	CanSetModel bool
+	CanSetMode  bool
+}
+
+type AcpUnsupportedMethodError struct {
+	Method string
+}
+
+func (e *AcpUnsupportedMethodError) Error() string {
+	return fmt.Sprintf("ACP method unsupported: %s", e.Method)
+}
+
 type AcpAgentConfig struct {
 	ID                     string
 	Label                  string
@@ -17,6 +30,7 @@ type AcpAgentConfig struct {
 	VersionArgs            []string
 	AuthMethods            []string
 	AutoApprovePermissions bool
+	Capabilities           AcpCapabilities
 }
 
 // AcpAgent manages an ACP-compatible CLI process over stdio JSON-RPC.
@@ -63,6 +77,12 @@ func (a *AcpAgent) Cwd() string {
 }
 
 func (a *AcpAgent) IsRunning() bool { return a.bridge.IsRunning() }
+
+func (a *AcpAgent) Capabilities() AcpCapabilities {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.config.Capabilities
+}
 
 func (a *AcpAgent) Available() bool {
 	a.mu.Lock()
@@ -183,6 +203,9 @@ func (a *AcpAgent) Cancel(sessionId string) error {
 }
 
 func (a *AcpAgent) SetMode(sessionId, modeId string) error {
+	if !a.config.Capabilities.CanSetMode {
+		return &AcpUnsupportedMethodError{Method: "session/setMode"}
+	}
 	_, err := a.bridge.Send("session/setMode", map[string]interface{}{
 		"sessionId": sessionId, "modeId": modeId,
 	})
@@ -190,6 +213,9 @@ func (a *AcpAgent) SetMode(sessionId, modeId string) error {
 }
 
 func (a *AcpAgent) SetModel(sessionId, modelId string) error {
+	if !a.config.Capabilities.CanSetModel {
+		return &AcpUnsupportedMethodError{Method: "session/setModel"}
+	}
 	_, err := a.bridge.Send("unstable/session/setModel", map[string]interface{}{
 		"sessionId": sessionId, "modelId": modelId,
 	})
@@ -424,7 +450,13 @@ func (a *AcpAgent) emitToolUpdate(sessionId, updateType string, update map[strin
 					"newText": c["newText"],
 				}
 				if meta, ok := c["_meta"].(map[string]interface{}); ok {
-					diff["kind"] = meta["kind"]
+					kind, _ := meta["kind"].(string)
+					// Normalize Claude's "modify" to the Codex "update" vocabulary
+					// that the frontend FileChangeCard natively expects.
+					if kind == "modify" {
+						kind = "update"
+					}
+					diff["kind"] = kind
 				}
 				notifParams["diff"] = diff
 			case "content":
