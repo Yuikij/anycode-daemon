@@ -260,16 +260,6 @@ func (a *AcpAgent) EnsureLoaded(sessionId, cwd string) error {
 			return err
 		}
 	}
-	if _, err := a.LoadSession(sessionId, cwd); err == nil {
-		return nil
-	} else {
-		log.Printf("[%s] session/load failed; restarting ACP once: %v", a.config.ID, err)
-		a.Stop()
-	}
-
-	if err := a.Start(); err != nil {
-		return err
-	}
 	if _, err := a.LoadSession(sessionId, cwd); err != nil {
 		a.clearLoadedSession()
 		return err
@@ -293,10 +283,8 @@ func (a *AcpAgent) Prompt(sessionId, text string, images []string) (map[string]i
 	promptContent := []acpPromptContent{
 		{Type: "text", Text: text},
 	}
-	for _, b64 := range images {
-		promptContent = append(promptContent, acpPromptContent{
-			Type: "image", MimeType: "image/jpeg", Data: b64,
-		})
+	for _, image := range images {
+		promptContent = append(promptContent, acpImagePromptContent(image))
 	}
 
 	raw, err := a.bridge.Send("session/prompt", acpPromptParams{
@@ -304,6 +292,24 @@ func (a *AcpAgent) Prompt(sessionId, text string, images []string) (map[string]i
 		Prompt:    promptContent,
 	})
 	return normalizeMapResult(raw), err
+}
+
+func acpImagePromptContent(image string) acpPromptContent {
+	mimeType := "image/jpeg"
+	data := strings.TrimSpace(image)
+	if strings.HasPrefix(data, "data:") {
+		if header, payload, ok := strings.Cut(data, ","); ok {
+			data = payload
+			mediaType := strings.TrimPrefix(header, "data:")
+			if idx := strings.Index(mediaType, ";"); idx >= 0 {
+				mediaType = mediaType[:idx]
+			}
+			if strings.HasPrefix(mediaType, "image/") {
+				mimeType = mediaType
+			}
+		}
+	}
+	return acpPromptContent{Type: "image", MimeType: mimeType, Data: data}
 }
 
 func (a *AcpAgent) Cancel(sessionId string) error {
@@ -486,7 +492,7 @@ func (a *AcpAgent) handleNotification(method string, params interface{}) {
 			})
 		}
 
-	case "agent_thought_chunk":
+	case "agent_thought_chunk", "plan":
 		if text := extractContentText(update); text != "" {
 			a.emit("message/thought", map[string]interface{}{
 				"sessionId": sessionId, "content": text, "delta": true,

@@ -83,17 +83,12 @@ func (s *Server) initRoutes() {
 	s.routes["fs.browse"] = s.handleFsBrowse
 	s.routes["fs.readAbsolute"] = s.handleFsReadAbsolute
 	s.routes["fs.writeAbsolute"] = s.handleFsWriteAbsolute
-	s.routes["project.info"] = s.handleProjectInfo
 	s.routes["project.open"] = s.handleProjectOpen
 	s.routes["project.list"] = s.handleProjectList
-	s.routes["fs.list"] = s.handleFsList
 	s.routes["fs.tree"] = s.handleFsTree
-	s.routes["fs.read"] = s.handleFsRead
 	s.routes["git.status"] = s.handleGitStatus
 	s.routes["git.diff"] = s.handleGitDiff
-	s.routes["git.diff.staged"] = s.handleGitDiffStaged
 	s.routes["git.log"] = s.handleGitLog
-	s.routes["git.diff.commit"] = s.handleGitDiffCommit
 	s.routes["codex.start"] = s.handleCodexStart
 	s.routes["codex.stop"] = s.handleCodexStop
 	s.routes["codex.status"] = s.handleCodexStatus
@@ -225,13 +220,37 @@ func handleFileChanges(params map[string]interface{}, projectRoot string, revers
 	}
 
 	changesJSON, _ := json.Marshal(changesRaw)
-	var changes []struct {
+	var rawChanges []struct {
 		Path string                 `json:"path"`
 		Kind map[string]interface{} `json:"kind"`
-		Diff string                 `json:"diff"`
+		Diff interface{}            `json:"diff"`
 	}
-	if err := json.Unmarshal(changesJSON, &changes); err != nil {
+	if err := json.Unmarshal(changesJSON, &rawChanges); err != nil {
 		return nil, fmt.Errorf("invalid changes format: %w", err)
+	}
+
+	type fileChange struct {
+		Path    string
+		Kind    map[string]interface{}
+		Diff    string
+		OldText string
+		NewText string
+	}
+	var changes []fileChange
+	for _, rc := range rawChanges {
+		c := fileChange{Path: rc.Path, Kind: rc.Kind}
+		switch d := rc.Diff.(type) {
+		case string:
+			c.Diff = d
+		case map[string]interface{}:
+			if ot, ok := d["oldText"].(string); ok {
+				c.OldText = ot
+			}
+			if nt, ok := d["newText"].(string); ok {
+				c.NewText = nt
+			}
+		}
+		changes = append(changes, c)
 	}
 
 	var processed []string
@@ -281,25 +300,47 @@ func handleFileChanges(params map[string]interface{}, projectRoot string, revers
 				if change.Diff != "" {
 					unified := buildReversibleDiff(resolvedPath, change.Diff)
 					err = gitApplyReverse(resolvedPath, unified)
+				} else if change.OldText != "" || change.NewText != "" {
+					content, rErr := os.ReadFile(resolvedPath)
+					if rErr == nil {
+						newContent := strings.Replace(string(content), change.NewText, change.OldText, -1)
+						err = os.WriteFile(resolvedPath, []byte(newContent), 0644)
+					} else {
+						err = rErr
+					}
 				}
 			}
 		} else {
 			switch kindType {
 			case "add":
-				lines := strings.Split(change.Diff, "\n")
-				var content []string
-				for _, l := range lines {
-					if strings.HasPrefix(l, "+") && !strings.HasPrefix(l, "+++") {
-						content = append(content, l[1:])
+				if change.Diff != "" {
+					lines := strings.Split(change.Diff, "\n")
+					var content []string
+					for _, l := range lines {
+						if strings.HasPrefix(l, "+") && !strings.HasPrefix(l, "+++") {
+							content = append(content, l[1:])
+						}
 					}
+					dir := filepath.Dir(resolvedPath)
+					_ = os.MkdirAll(dir, 0755)
+					err = os.WriteFile(resolvedPath, []byte(strings.Join(content, "\n")), 0644)
+				} else if change.NewText != "" {
+					dir := filepath.Dir(resolvedPath)
+					_ = os.MkdirAll(dir, 0755)
+					err = os.WriteFile(resolvedPath, []byte(change.NewText), 0644)
 				}
-				dir := filepath.Dir(resolvedPath)
-				_ = os.MkdirAll(dir, 0755)
-				err = os.WriteFile(resolvedPath, []byte(strings.Join(content, "\n")), 0644)
 			case "update":
 				if change.Diff != "" {
 					unified := buildReversibleDiff(resolvedPath, change.Diff)
 					err = gitApplyForward(resolvedPath, unified)
+				} else if change.OldText != "" || change.NewText != "" {
+					content, rErr := os.ReadFile(resolvedPath)
+					if rErr == nil {
+						newContent := strings.Replace(string(content), change.OldText, change.NewText, -1)
+						err = os.WriteFile(resolvedPath, []byte(newContent), 0644)
+					} else {
+						err = rErr
+					}
 				}
 			case "delete":
 				if _, serr := os.Stat(resolvedPath); serr == nil {

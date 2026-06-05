@@ -103,12 +103,34 @@ func (s *Server) resumeResult(afterSeq uint64, projectID string, allowReplay boo
 	return result
 }
 
-func (s *Server) helloAgentStatus() map[string]interface{} {
-	return map[string]interface{}{
-		"codex":  s.runtime.StatusSnapshot("codex"),
-		"claude": s.runtime.StatusSnapshot("claude"),
-		"gemini": s.runtime.StatusSnapshot("gemini"),
+func (s *Server) helloAgentStatus(includeProjectGeneration bool) map[string]interface{} {
+	options := RuntimeSnapshotOptions{
+		LatestSeq: s.latestEventSeq(),
+		Project:   s.currentProjectInfo(),
 	}
+	statuses := map[string]interface{}{
+		"codex": s.runtime.TaskSnapshot("codex", RuntimeSnapshotOptions{
+			LatestSeq:     options.LatestSeq,
+			Project:       options.Project,
+			LastOperation: s.latestOperationPayload("codex"),
+		}),
+		"claude": s.runtime.TaskSnapshot("claude", RuntimeSnapshotOptions{
+			LatestSeq:      options.LatestSeq,
+			Project:        options.Project,
+			LastOperation:  s.latestOperationPayload("claude"),
+			LastPermission: s.latestPermissionPayload("claude"),
+		}),
+		"gemini": s.runtime.TaskSnapshot("gemini", RuntimeSnapshotOptions{
+			LatestSeq:     options.LatestSeq,
+			Project:       options.Project,
+			LastOperation: s.latestOperationPayload("gemini"),
+		}),
+	}
+	shaped := shapeSnapshotPayload(map[string]interface{}{"agents": statuses}, includeProjectGeneration)
+	if agents, ok := shaped["agents"].(map[string]interface{}); ok {
+		return agents
+	}
+	return statuses
 }
 
 func (s *Server) negotiatedHelloCapabilities(requested []string) []string {
@@ -244,7 +266,7 @@ func (s *Server) handleClientHello(req RpcRequest, client *wsClient) (interface{
 		"role":            "client",
 		"capabilities":    negotiatedCapabilities,
 		"project":         projectInfoPayload(s.currentProjectInfo(), includeProjectGeneration),
-		"agents":          s.helloAgentStatus(),
+		"agents":          s.helloAgentStatus(includeProjectGeneration),
 		"latestSeq":       s.latestEventSeq(),
 		"resume":          resume,
 	}, nil

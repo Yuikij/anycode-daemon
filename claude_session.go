@@ -169,7 +169,7 @@ func parseClaudeSessionFile(path, fallbackSessionId string, includeItems bool) (
 		if base.SessionId != "" {
 			session["sessionId"] = base.SessionId
 		}
-		if base.Cwd != "" {
+		if base.Cwd != "" && session["cwd"] == "" {
 			session["cwd"] = base.Cwd
 		}
 		if base.PermissionMode != "" {
@@ -236,7 +236,7 @@ func parseClaudeSessionFile(path, fallbackSessionId string, includeItems bool) (
 				if model, _ := msg["model"].(string); model != "" {
 					session["model"] = model
 				}
-				text, thoughts := claudeAssistantParts(msg)
+				text, thoughts, tools := claudeAssistantParts(msg)
 				if !seenClaudeUUID(obj, seen) {
 					if thoughts != "" {
 						items = append(items, map[string]interface{}{
@@ -245,6 +245,9 @@ func parseClaudeSessionFile(path, fallbackSessionId string, includeItems bool) (
 							"summaryText": thoughts,
 							"text":        thoughts,
 						})
+					}
+					if len(tools) > 0 {
+						items = append(items, tools...)
 					}
 					if text != "" {
 						items = append(items, map[string]interface{}{
@@ -284,10 +287,11 @@ func claudeMessageText(raw interface{}) string {
 	return strings.Join(parts, "\n")
 }
 
-func claudeAssistantParts(msg map[string]interface{}) (string, string) {
+func claudeAssistantParts(msg map[string]interface{}) (string, string, []map[string]interface{}) {
 	arr, _ := msg["content"].([]interface{})
 	textParts := []string{}
 	thoughtParts := []string{}
+	tools := []map[string]interface{}{}
 	for _, item := range arr {
 		block, _ := item.(map[string]interface{})
 		switch block["type"] {
@@ -301,11 +305,38 @@ func claudeAssistantParts(msg map[string]interface{}) (string, string) {
 			}
 		case "tool_use":
 			if name, _ := block["name"].(string); name != "" {
-				textParts = append(textParts, fmt.Sprintf("Used tool: %s", name))
+				input, _ := block["input"].(map[string]interface{})
+				isFileOp := name == "Edit" || name == "Write" || name == "edit" || name == "write" || name == "replace_file_content"
+				isSearch := strings.Contains(name, "search") || strings.Contains(name, "Search")
+				commandStr := name
+				if input != nil {
+					if cmd, _ := input["command"].(string); cmd != "" {
+						commandStr = cmd
+					} else if fp, _ := input["file_path"].(string); fp != "" {
+						commandStr = fp
+					} else if ap, _ := input["AbsolutePath"].(string); ap != "" {
+						commandStr = ap
+					} else if tf, _ := input["TargetFile"].(string); tf != "" {
+						commandStr = tf
+					}
+				}
+				tType := "commandExecution"
+				if isFileOp {
+					tType = "fileChange"
+				} else if isSearch {
+					tType = "webSearch"
+				}
+				tools = append(tools, map[string]interface{}{
+					"id":      fmt.Sprintf("%v", block["id"]),
+					"type":    tType,
+					"text":    name,
+					"command": commandStr,
+					"status":  "completed",
+				})
 			}
 		}
 	}
-	return strings.Join(textParts, "\n\n"), strings.Join(thoughtParts, "\n\n")
+	return strings.Join(textParts, "\n\n"), strings.Join(thoughtParts, "\n\n"), tools
 }
 
 func seenClaudeUUID(obj map[string]interface{}, seen map[string]bool) bool {

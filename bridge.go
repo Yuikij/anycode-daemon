@@ -253,7 +253,7 @@ func (b *AgentBridge) SendContext(ctx context.Context, method string, params int
 	select {
 	case res := <-ch:
 		if res.Error != nil {
-			return nil, fmt.Errorf("Codex error %d: %s", res.Error.Code, res.Error.Message)
+			return nil, formatAgentRPCError(res.Error)
 		}
 		return res.Result, nil
 	case <-ctx.Done():
@@ -262,6 +262,31 @@ func (b *AgentBridge) SendContext(ctx context.Context, method string, params int
 		b.mu.Unlock()
 		return nil, fmt.Errorf("agent request failed: %s: %w", method, ctx.Err())
 	}
+}
+
+func formatAgentRPCError(rpcErr *RpcError) error {
+	if rpcErr == nil {
+		return nil
+	}
+	message := rpcErr.Message
+	if details := rpcErrorDetails(rpcErr.Data); details != "" {
+		message = fmt.Sprintf("%s: %s", message, details)
+	}
+	return fmt.Errorf("Codex error %d: %s", rpcErr.Code, message)
+}
+
+func rpcErrorDetails(data interface{}) string {
+	payload, ok := data.(map[string]interface{})
+	if !ok {
+		return ""
+	}
+	if details, ok := payload["details"].(string); ok && details != "" {
+		return details
+	}
+	if method, ok := payload["method"].(string); ok && method != "" {
+		return method
+	}
+	return ""
 }
 
 func (b *AgentBridge) Respond(id interface{}, result interface{}) error {

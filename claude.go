@@ -451,9 +451,9 @@ func (c *ClaudeBridge) NewSession(cwd string) (string, error) {
 	return newSid, nil
 }
 
-// LoadSession resumes a session by ID. It loads the conversation into the
-// ACP agent (so further prompts continue in that session) AND returns the
-// parsed items from the local JSONL so the UI can display history.
+// LoadSession resumes a session by ID. This is the single canonical load path:
+// read the local transcript, load that session into ACP, then expose the parsed
+// items to the UI. If ACP cannot load the session, return the error directly.
 func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{}, error) {
 	if sessionId == "" {
 		return nil, fmt.Errorf("sessionId is required")
@@ -470,7 +470,21 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	}
 
 	c.mu.Lock()
-	busy := c.taskRunning && c.currentSession == sessionId
+	if c.taskRunning && c.currentSession != "" && c.currentSession != sessionId {
+		runningSession := c.currentSession
+		c.mu.Unlock()
+		return nil, fmt.Errorf("cannot load session %s while session %s is running", sessionId, runningSession)
+	}
+	c.mu.Unlock()
+
+	if sessionCwd, _ := session["cwd"].(string); sessionCwd != "" {
+		cwd = sessionCwd
+	}
+	if err := c.ensureAgentSessionLoaded(sessionId, cwd); err != nil {
+		return nil, fmt.Errorf("session/load: %w", err)
+	}
+
+	c.mu.Lock()
 	c.currentSession = sessionId
 	if cwd != "" {
 		c.cwd = cwd
@@ -485,14 +499,6 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	selectedEffort := canonicalClaudeEffort(c.selectedEffort)
 	selectedMode := canonicalClaudePermissionMode(c.selectedMode)
 	c.mu.Unlock()
-
-	if busy {
-		log.Printf("[claude] resume: task in flight for %s; returning history only, not disturbing the running agent", sessionId)
-	} else {
-		if lerr := c.ensureAgentSessionLoaded(sessionId, cwd); lerr != nil {
-			log.Printf("[claude] session/load best-effort failed: %v", lerr)
-		}
-	}
 
 	c.emit("init", map[string]interface{}{
 		"sessionId": sessionId,

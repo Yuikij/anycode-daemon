@@ -70,20 +70,16 @@ Immediately after establishing the WebSocket connection, the client **must** sen
 ### 1. File System (`fs.*`)
 - **`fs.browse`**: Browse directories (absolute path). Parameters: `path` (string), `showHidden` (bool).
 - **`fs.readAbsolute`**: Read an absolute file path. Parameters: `path` (string).
-- **`fs.list`**: List files within the project context. Parameters: `path` (relative).
 - **`fs.tree`**: Get file tree with depth. Parameters: `path` (string), `depth` (int).
-- **`fs.read`**: Read a file relative to the project root. Parameters: `path` (string).
 
 ### 2. Project Management (`project.*`)
-- **`project.info`**: Get information about the current project root.
 - **`project.open`**: Switch the daemon's working directory. Parameters: `path` (string).
 - **`project.list`**: List available project directories.
 
 ### 3. Git Operations (`git.*`)
 - **`git.status`**: Get working directory git status.
-- **`git.diff` / `git.diff.staged`**: Get diffs for specific files. Parameters: `path` (string), `cwd` (optional).
+- **`git.diff`**: Get diffs for specific files. Parameters: `path` (string), `cwd` (optional).
 - **`git.log`**: Get commit history. Parameters: `count` (int).
-- **`git.diff.commit`**: Get diff for a specific commit. Parameters: `commit` (string), `path` (string).
 
 ### 4. Agent Operations (`codex.*` / `gemini.*`)
 - **`codex.start` / `codex.stop`**: Manage the Codex agent process.

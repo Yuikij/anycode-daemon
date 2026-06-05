@@ -5,11 +5,6 @@ import (
 	"path/filepath"
 )
 
-func (s *Server) handleProjectInfo(req RpcRequest, client *wsClient) (interface{}, error) {
-	return s.currentProjectInfo(), nil
-
-}
-
 func (s *Server) handleProjectOpen(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
 	newRoot := getParamString(params, "path")

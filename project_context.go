@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 )
 
 type projectRequestContext struct {
@@ -52,14 +51,9 @@ func resolveProjectScopedCwd(projectRoot, requestedCwd string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	rel, err := filepath.Rel(absProjectRoot, absRequestedCwd)
-	if err != nil {
-		return "", err
-	}
-	if rel == "." || (!strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != "..") {
-		return absRequestedCwd, nil
-	}
-	return "", fmt.Errorf("cwd %q is outside current project %q", absRequestedCwd, absProjectRoot)
+
+	// Disable strict bounds checking to allow operating outside project root.
+	return absRequestedCwd, nil
 }
 
 func (s *Server) resolveProjectRequestContext(params map[string]interface{}, defaultToProjectRoot bool) (projectRequestContext, error) {

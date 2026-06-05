@@ -60,14 +60,17 @@ func (s *Server) handleClaudeLoadSession(req RpcRequest, client *wsClient) (inte
 }
 
 func (s *Server) handleClaudeNewSession(req RpcRequest, client *wsClient) (interface{}, error) {
+	runtime := s.runtime.MustRuntime("claude")
 	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
 	if err != nil {
 		return nil, err
 	}
-	s.claude.SetCwd(context.cwd)
-	s.claude.ClearSession()
+	result, err := runtime.NewSession(context.cwd)
+	if err != nil {
+		return nil, err
+	}
 	s.persistRuntimeState("claude")
-	return s.runtime.SessionResponse("claude", nil), nil
+	return s.runtime.SessionResponse("claude", result), nil
 
 }
 

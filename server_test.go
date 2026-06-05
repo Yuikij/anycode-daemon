@@ -1143,23 +1143,7 @@ func TestGitStatusRejectsStaleProjectGeneration(t *testing.T) {
 	}
 }
 
-func TestGitDiffRejectsCwdOutsideCurrentProject(t *testing.T) {
-	rootA := t.TempDir()
-	rootB := t.TempDir()
-	server := newTestServer(t, rootA)
-	server.switchProject(rootB)
 
-	encodedParams, err := json.Marshal(map[string]interface{}{
-		"cwd": rootA,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	params := json.RawMessage(encodedParams)
-	if _, err := server.handleGitDiff(RpcRequest{Method: "git.diff", Params: &params}, nil); err == nil {
-		t.Fatal("expected git.diff with cwd outside current project to fail")
-	}
-}
 
 func TestClaudeNewSessionRejectsStaleProjectGeneration(t *testing.T) {
 	rootA := t.TempDir()
@@ -1296,23 +1280,7 @@ func TestCodexDynamicRejectsStaleProjectGeneration(t *testing.T) {
 	}
 }
 
-func TestCodexThreadStartRejectsCwdOutsideCurrentProject(t *testing.T) {
-	rootA := t.TempDir()
-	rootB := t.TempDir()
-	server := newTestServer(t, rootA)
-	server.switchProject(rootB)
 
-	encodedParams, err := json.Marshal(map[string]interface{}{
-		"cwd": rootA,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	params := json.RawMessage(encodedParams)
-	if _, err := server.handleCodexDynamic(RpcRequest{Method: "codex.threadStart", Params: &params}, nil); err == nil {
-		t.Fatal("expected codex.threadStart with cwd outside current project to fail")
-	}
-}
 
 func TestCodexThreadReadRejectsMismatchedProjectID(t *testing.T) {
 	root := t.TempDir()

@@ -44,17 +44,6 @@ func (s *Server) handleFsWriteAbsolute(req RpcRequest, client *wsClient) (interf
 	return map[string]bool{"ok": true}, nil
 }
 
-func (s *Server) handleFsList(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	dirPath := getParamString(params, "path")
-	fullPath, _, err := resolveProjectPath(s.projectRoot, dirPath)
-	if err != nil {
-		return nil, err
-	}
-	return listDirectory(fullPath, s.projectRoot)
-
-}
-
 func (s *Server) handleFsTree(req RpcRequest, client *wsClient) (interface{}, error) {
 	params := getParams(req.Params)
 	dirPath := getParamString(params, "path")
@@ -64,15 +53,5 @@ func (s *Server) handleFsTree(req RpcRequest, client *wsClient) (interface{}, er
 		return nil, err
 	}
 	return getFileTree(fullPath, s.projectRoot, depth)
-
-}
-
-func (s *Server) handleFsRead(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	filePath := getParamString(params, "path")
-	if filePath == "" {
-		return nil, fmt.Errorf("path is required")
-	}
-	return readFileContent(filePath, s.projectRoot)
 
 }
