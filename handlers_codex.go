@@ -7,7 +7,11 @@ import (
 
 func (s *Server) handleCodexStart(req RpcRequest, client *wsClient) (interface{}, error) {
 	runtime := s.runtime.MustRuntime("codex")
-	_, context, err := s.normalizeProjectScopedParams(getParams(req.Params), true)
+	p, err := decodeParams[codexStartParams](req)
+	if err != nil {
+		return nil, err
+	}
+	context, err := s.resolveScope(p.projectScope, true)
 	if err != nil {
 		return nil, err
 	}
@@ -58,13 +62,14 @@ func (s *Server) handleCodexConfigWrite(req RpcRequest, client *wsClient) (inter
 }
 
 func (s *Server) handleCodexRespond(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	reqID := params["requestId"]
-	result := params["result"]
-	if reqID == nil {
+	p, err := decodeParams[codexRespondParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.RequestID == nil {
 		return nil, fmt.Errorf("requestId is required")
 	}
-	if err := s.runtime.CodexRuntime().Respond(reqID, result); err != nil {
+	if err := s.runtime.CodexRuntime().Respond(p.RequestID, p.Result); err != nil {
 		return nil, err
 	}
 	return s.runtime.ActionResponse("codex", nil), nil

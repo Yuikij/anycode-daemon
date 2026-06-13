@@ -1,0 +1,240 @@
+{
+  "version": 2,
+  "description": "AnyCode RPC method catalog — the single source of truth for the request methods the daemon exposes AND their request params. The daemon (daemon-go), web SDK, and iOS app all validate against this file in their contract tests, so any method/param added/removed/renamed on one end without updating this catalog turns the contract tests red. `clients` documents the *intended* consumers so feature parity gaps are a conscious product decision rather than silent protocol drift. The daemon also loads this file at dev/test time to validate incoming params at the dispatch boundary (see daemon-go/protocol_params.go).",
+  "paramTypes": ["string", "number", "boolean", "string[]", "object", "array", "any"],
+  "paramNotes": "Each method's `params` lists declared request fields. `required:true` fields must be present (and, for strings, non-empty). Undeclared extra fields are allowed (validation is not strict/closed). `passthrough:true` methods forward params verbatim to an underlying agent and are not param-validated. `projectId`/`expectedProjectGeneration`/`cwd` are the common project-scope fields.",
+  "transports": [
+    {
+      "name": "auth",
+      "summary": "Transport-level auth handshake. Handled by the WebSocket manager before rpc_router dispatch, not registered as a route."
+    },
+    {
+      "name": "ping",
+      "summary": "Application-level heartbeat. Answered with a `pong` notification; not a routed RPC method."
+    }
+  ],
+  "methods": [
+    { "name": "daemon.version", "group": "daemon", "clients": [], "summary": "Report the running daemon version.", "params": [] },
+    { "name": "client.hello", "group": "session", "clients": ["web", "ios"], "summary": "Authoritative session handshake: negotiated capabilities, project, per-agent authoritative snapshot, and event resume payload. The single recovery entry point.", "params": [
+      { "name": "clientId", "type": "string" },
+      { "name": "platform", "type": "string" },
+      { "name": "lastSeq", "type": "number" },
+      { "name": "projectId", "type": "string" },
+      { "name": "capabilities", "type": "string[]" }
+    ] },
+    { "name": "daemon.configRead", "group": "daemon", "clients": ["ios"], "summary": "Read daemon-level configuration (e.g. proxy).", "params": [] },
+    { "name": "daemon.configWrite", "group": "daemon", "clients": ["ios"], "summary": "Write daemon-level configuration.", "params": [
+      { "name": "proxy", "type": "string" }
+    ] },
+
+    { "name": "share.create", "group": "share", "clients": ["web", "ios"], "summary": "Publish an HTML preview to a shareable URL.", "params": [
+      { "name": "html", "type": "string", "required": true }
+    ] },
+
+    { "name": "fs.browse", "group": "fs", "clients": ["web", "ios"], "summary": "List a single directory level.", "params": [
+      { "name": "path", "type": "string" },
+      { "name": "showHidden", "type": "boolean" }
+    ] },
+    { "name": "fs.tree", "group": "fs", "clients": ["web"], "summary": "Return a recursive directory tree to a given depth.", "params": [
+      { "name": "path", "type": "string" },
+      { "name": "depth", "type": "number" }
+    ] },
+    { "name": "fs.readAbsolute", "group": "fs", "clients": ["web", "ios"], "summary": "Read a file by absolute path.", "params": [
+      { "name": "path", "type": "string", "required": true }
+    ] },
+    { "name": "fs.writeAbsolute", "group": "fs", "clients": ["web", "ios"], "summary": "Write a file by absolute path.", "params": [
+      { "name": "path", "type": "string", "required": true },
+      { "name": "content", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+
+    { "name": "project.open", "group": "project", "clients": ["web", "ios"], "summary": "Switch the active project root (bumps project generation).", "params": [
+      { "name": "path", "type": "string", "required": true }
+    ] },
+
+    { "name": "git.status", "group": "git", "clients": ["web", "ios"], "summary": "Working-tree status.", "params": [
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+    { "name": "git.diff", "group": "git", "clients": ["web", "ios"], "summary": "Diff for a path or the working tree.", "params": [
+      { "name": "path", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "git.log", "group": "git", "clients": ["web", "ios"], "summary": "Commit history.", "params": [
+      { "name": "count", "type": "number" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+
+    { "name": "codex.start", "group": "codex", "clients": ["web", "ios"], "summary": "Start/attach the Codex app-server.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "codex.stop", "group": "codex", "clients": [], "summary": "Stop the Codex app-server.", "params": [] },
+    { "name": "codex.status", "group": "codex", "clients": ["ios"], "summary": "Poll Codex agent status.", "params": [] },
+    { "name": "codex.taskStatus", "group": "codex", "clients": ["web", "ios"], "summary": "Codex authoritative task snapshot (also delivered via client.hello).", "params": [] },
+    { "name": "codex.configWrite", "group": "codex", "clients": ["web", "ios"], "summary": "Write a Codex config key.", "params": [
+      { "name": "keyPath", "type": "string" },
+      { "name": "value", "type": "any" },
+      { "name": "mergeStrategy", "type": "string" }
+    ] },
+    { "name": "codex.configRead", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Read Codex config (dynamic app-server passthrough: config/read)." },
+    { "name": "codex.respond", "group": "codex", "clients": ["web", "ios"], "summary": "Respond to a Codex server request (e.g. approval).", "params": [
+      { "name": "requestId", "type": "any", "required": true },
+      { "name": "result", "type": "any" }
+    ] },
+    { "name": "codex.revertFileChanges", "group": "codex", "clients": ["web", "ios"], "summary": "Revert applied file changes (undo).", "params": [
+      { "name": "changes", "type": "array" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "codex.applyFileChanges", "group": "codex", "clients": ["web", "ios"], "summary": "Re-apply reverted file changes (redo).", "params": [
+      { "name": "changes", "type": "array" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "codex.threadList", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "List Codex threads (thread/list)." },
+    { "name": "codex.threadRead", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Read a Codex thread (thread/read)." },
+    { "name": "codex.threadStart", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Start a Codex thread (thread/start)." },
+    { "name": "codex.threadResume", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Resume a Codex thread (thread/resume)." },
+    { "name": "codex.threadArchive", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Archive a Codex thread (thread/archive)." },
+    { "name": "codex.threadUnarchive", "group": "codex", "clients": [], "dynamic": true, "passthrough": true, "summary": "Unarchive a Codex thread (thread/unarchive)." },
+    { "name": "codex.threadRename", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Rename a Codex thread (thread/name/set)." },
+    { "name": "codex.threadRollback", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Roll a Codex thread back to a prior turn (thread/rollback)." },
+    { "name": "codex.threadCompact", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Compact a Codex thread (thread/compact)." },
+    { "name": "codex.turnStart", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Start a Codex turn (turn/start)." },
+    { "name": "codex.turnSteer", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Steer an in-flight Codex turn (turn/steer)." },
+    { "name": "codex.turnInterrupt", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Interrupt a Codex turn (turn/interrupt)." },
+    { "name": "codex.modelList", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "List Codex models (model/list)." },
+
+    { "name": "gemini.start", "group": "gemini", "clients": ["web", "ios"], "summary": "Start/attach the Gemini agent.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "gemini.status", "group": "gemini", "clients": ["ios"], "summary": "Poll Gemini agent status.", "params": [] },
+    { "name": "gemini.newSession", "group": "gemini", "clients": ["web", "ios"], "summary": "Create a new Gemini session.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "gemini.loadSession", "group": "gemini", "clients": ["web", "ios"], "summary": "Load an existing Gemini session.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "gemini.prompt", "group": "gemini", "clients": ["web", "ios"], "summary": "Send a prompt to Gemini.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "prompt", "type": "string" },
+      { "name": "text", "type": "string" },
+      { "name": "images", "type": "string[]" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "gemini.cancel", "group": "gemini", "clients": ["web", "ios"], "summary": "Cancel the active Gemini turn.", "params": [
+      { "name": "sessionId", "type": "string" }
+    ] },
+    { "name": "gemini.taskStatus", "group": "gemini", "clients": ["web", "ios"], "summary": "Gemini authoritative task snapshot (also delivered via client.hello).", "params": [] },
+    { "name": "gemini.setMode", "group": "gemini", "clients": ["web", "ios"], "summary": "Set the Gemini approval mode.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "modeId", "type": "string", "required": true }
+    ] },
+    { "name": "gemini.setModel", "group": "gemini", "clients": ["web", "ios"], "summary": "Set the Gemini model.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "modelId", "type": "string", "required": true }
+    ] },
+    { "name": "gemini.sessionList", "group": "gemini", "clients": ["web", "ios"], "summary": "List Gemini sessions.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+
+    { "name": "claude.start", "group": "claude", "clients": ["web", "ios"], "summary": "Start/attach the Claude agent.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.status", "group": "claude", "clients": ["ios"], "summary": "Poll Claude agent status.", "params": [] },
+    { "name": "claude.sessionList", "group": "claude", "clients": ["web", "ios"], "summary": "List Claude sessions.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.loadSession", "group": "claude", "clients": ["web", "ios"], "summary": "Load an existing Claude session.", "params": [
+      { "name": "sessionId", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.newSession", "group": "claude", "clients": ["web", "ios"], "summary": "Create a new Claude session.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.sessionDelete", "group": "claude", "clients": ["web", "ios"], "summary": "Delete a Claude session.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.sessionRename", "group": "claude", "clients": ["web", "ios"], "summary": "Rename a Claude session.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "title", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.setConfig", "group": "claude", "clients": ["web", "ios"], "summary": "Update Claude config (model/effort/permission mode).", "params": [
+      { "name": "model", "type": "string" },
+      { "name": "effort", "type": "string" },
+      { "name": "permissionMode", "type": "string" }
+    ] },
+    { "name": "claude.prompt", "group": "claude", "clients": ["web", "ios"], "summary": "Send a prompt to Claude.", "params": [
+      { "name": "prompt", "type": "string" },
+      { "name": "text", "type": "string" },
+      { "name": "images", "type": "string[]" },
+      { "name": "model", "type": "string" },
+      { "name": "effort", "type": "string" },
+      { "name": "permissionMode", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "claude.cancel", "group": "claude", "clients": ["web", "ios"], "summary": "Cancel the active Claude turn.", "params": [] },
+    { "name": "claude.stop", "group": "claude", "clients": ["web", "ios"], "summary": "Stop the Claude agent.", "params": [] },
+    { "name": "claude.taskStatus", "group": "claude", "clients": ["web", "ios"], "summary": "Claude authoritative task snapshot (also delivered via client.hello).", "params": [] },
+    { "name": "claude.permission/respond", "group": "claude", "clients": ["web", "ios"], "summary": "Respond to a Claude permission request.", "params": [
+      { "name": "requestId", "type": "string", "required": true },
+      { "name": "optionId", "type": "string" },
+      { "name": "cancelled", "type": "boolean" }
+    ] },
+
+    { "name": "cron.list", "group": "cron", "clients": ["ios"], "summary": "List cron jobs.", "params": [] },
+    { "name": "cron.create", "group": "cron", "clients": ["ios"], "summary": "Create a cron job.", "params": [
+      { "name": "name", "type": "string", "required": true },
+      { "name": "agent", "type": "string", "required": true },
+      { "name": "prompt", "type": "string", "required": true },
+      { "name": "expression", "type": "string", "required": true },
+      { "name": "sessionId", "type": "string" },
+      { "name": "enabled", "type": "boolean" }
+    ] },
+    { "name": "cron.update", "group": "cron", "clients": ["ios"], "summary": "Update a cron job.", "params": [
+      { "name": "id", "type": "string", "required": true },
+      { "name": "name", "type": "string" },
+      { "name": "agent", "type": "string" },
+      { "name": "prompt", "type": "string" },
+      { "name": "expression", "type": "string" },
+      { "name": "sessionId", "type": "string" },
+      { "name": "enabled", "type": "boolean" }
+    ] },
+    { "name": "cron.delete", "group": "cron", "clients": ["ios"], "summary": "Delete a cron job.", "params": [
+      { "name": "id", "type": "string", "required": true }
+    ] }
+  ]
+}

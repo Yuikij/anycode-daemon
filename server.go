@@ -59,6 +59,13 @@ type Server struct {
 	clients      map[*wsClient]struct{}
 	routes       map[string]func(req RpcRequest, client *wsClient) (interface{}, error)
 	eventJournal *eventJournal
+
+	// paramValidator validates incoming RPC params against the embedded protocol
+	// method catalog at the dispatch boundary (see protocol_params.go). It is
+	// always loaded; paramValidation is on by default and only disabled via the
+	// ANYCODE_DISABLE_PARAM_VALIDATION escape hatch.
+	paramValidator  *protocolValidator
+	paramValidation bool
 }
 
 var upgrader = websocket.Upgrader{
@@ -108,6 +115,11 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		return nil, err
 	}
 	s.initRoutes()
+	s.paramValidator = mustLoadEmbeddedValidator()
+	// Boundary param validation is on by default (the catalog is embedded, so it
+	// works in production too). ANYCODE_DISABLE_PARAM_VALIDATION is an emergency
+	// escape hatch only.
+	s.paramValidation = os.Getenv("ANYCODE_DISABLE_PARAM_VALIDATION") == ""
 
 	s.cron = NewCronManager(s)
 	s.cron.Start(s.projectRoot)

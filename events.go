@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"sync/atomic"
 	"time"
 )
@@ -134,7 +135,7 @@ func (s *Server) helloAgentStatus(includeProjectGeneration bool) map[string]inte
 }
 
 func (s *Server) negotiatedHelloCapabilities(requested []string) []string {
-	supported := []string{"client.hello", "project.generation"}
+	supported := []string{"client.hello", "project.generation", "method.catalog"}
 	if len(requested) == 0 {
 		return append([]string(nil), supported...)
 	}
@@ -260,7 +261,7 @@ func (s *Server) handleClientHello(req RpcRequest, client *wsClient) (interface{
 	allowReplay := afterSeq > 0
 	resume := shapeResumePayload(s.resumeResult(afterSeq, projectID, allowReplay), includeProjectGeneration)
 
-	return map[string]interface{}{
+	response := map[string]interface{}{
 		"protocolVersion": 1,
 		"daemonVersion":   Version,
 		"role":            "client",
@@ -269,7 +270,18 @@ func (s *Server) handleClientHello(req RpcRequest, client *wsClient) (interface{
 		"agents":          s.helloAgentStatus(includeProjectGeneration),
 		"latestSeq":       s.latestEventSeq(),
 		"resume":          resume,
-	}, nil
+	}
+
+	// Capability discovery (R3): when the client negotiates `method.catalog`,
+	// advertise the exact RPC method set this daemon serves so the client can
+	// enable/disable features instead of blindly calling unsupported methods.
+	if contains(negotiatedCapabilities, "method.catalog") {
+		methods := s.registeredMethodNames()
+		sort.Strings(methods)
+		response["methods"] = methods
+	}
+
+	return response, nil
 }
 
 func (s *Server) isResumeCursorExpired(afterSeq uint64, projectID string) bool {
@@ -313,13 +325,6 @@ func (s *Server) resumeSnapshot(latestSeq uint64) map[string]interface{} {
 			"gemini": s.agentResumeSnapshot("gemini", latestSeq, project),
 		},
 	}
-}
-
-func (s *Server) handleEventsResume(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	afterSeq := uint64(getParamInt(params, "afterSeq", 0))
-	projectID := getParamString(params, "projectId")
-	return s.resumeResult(afterSeq, projectID, true), nil
 }
 
 func attachEventMeta(params interface{}, event eventEnvelope) interface{} {
@@ -399,11 +404,15 @@ func attachOperationID(params interface{}, operationID string) interface{} {
 }
 
 func (s *Server) validateExpectedProjectGeneration(params map[string]interface{}) error {
-	expected := getParamInt(params, "expectedProjectGeneration", 0)
+	return s.checkProjectGeneration(getParamInt(params, "expectedProjectGeneration", 0))
+}
+
+// checkProjectGeneration is the typed core of the expected-generation guard,
+// usable from handlers that decode params into structs instead of maps.
+func (s *Server) checkProjectGeneration(expected int) error {
 	if expected <= 0 {
 		return nil
 	}
-
 	_, generation := s.currentProjectState()
 	if uint64(expected) != generation {
 		return fmt.Errorf("project changed: expected generation %d, current %d", expected, generation)

@@ -6,6 +6,13 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Sync the shared protocol method catalog into the daemon package so it can be
+# embedded into the binary (go:embed can't reach ../protocol). The committed
+# copy is a build artifact; protocol/methods.json stays the single source of
+# truth and a drift test (protocol_params_test.go) fails if the two diverge.
+echo "→ Syncing protocol catalog for embedding..."
+cp -f ../protocol/methods.json ./methods.json
+
 echo "→ Building Linux amd64 binary..."
 GOOS=linux GOARCH=amd64 go build -o anycode-daemon-linux-amd64 .
 

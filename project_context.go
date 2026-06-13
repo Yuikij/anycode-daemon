@@ -20,19 +20,45 @@ func (s *Server) currentProjectContext() projectRequestContext {
 	}
 }
 
-func (s *Server) validateRequestedProjectID(params map[string]interface{}) error {
-	if params == nil {
-		return nil
+// projectScope is the typed view of the common project-scope request fields
+// (projectId / expectedProjectGeneration / cwd). Handlers embed it in their
+// request structs and resolve it via resolveScope, replacing ad-hoc map digging.
+type projectScope struct {
+	ProjectID                 string `json:"projectId"`
+	ExpectedProjectGeneration int    `json:"expectedProjectGeneration"`
+	Cwd                       string `json:"cwd"`
+}
+
+func projectScopeFromParams(params map[string]interface{}) projectScope {
+	return projectScope{
+		ProjectID:                 getParamString(params, "projectId"),
+		ExpectedProjectGeneration: getParamInt(params, "expectedProjectGeneration", 0),
+		Cwd:                       getParamString(params, "cwd"),
 	}
-	requestedProjectID := getParamString(params, "projectId")
-	if requestedProjectID == "" {
-		return nil
+}
+
+// resolveScope validates the expected generation and project id, then resolves
+// the effective cwd. It is the single implementation behind both the typed
+// handler path and the legacy map-based resolveProjectRequestContext.
+func (s *Server) resolveScope(scope projectScope, defaultToProjectRoot bool) (projectRequestContext, error) {
+	context := s.currentProjectContext()
+	if err := s.checkProjectGeneration(scope.ExpectedProjectGeneration); err != nil {
+		return context, err
 	}
-	currentProjectID, _ := s.currentProjectState()
-	if requestedProjectID != currentProjectID {
-		return fmt.Errorf("stale project id: request bound to %q but current project is %q", requestedProjectID, currentProjectID)
+	if scope.ProjectID != "" {
+		currentProjectID, _ := s.currentProjectState()
+		if scope.ProjectID != currentProjectID {
+			return context, fmt.Errorf("stale project id: request bound to %q but current project is %q", scope.ProjectID, currentProjectID)
+		}
 	}
-	return nil
+	if defaultToProjectRoot || scope.Cwd != "" {
+		resolvedCwd, err := resolveProjectScopedCwd(context.projectID, scope.Cwd)
+		if err != nil {
+			return context, err
+		}
+		context.cwd = resolvedCwd
+	}
+	return context, nil
 }
 
 func resolveProjectScopedCwd(projectRoot, requestedCwd string) (string, error) {
@@ -57,22 +83,7 @@ func resolveProjectScopedCwd(projectRoot, requestedCwd string) (string, error) {
 }
 
 func (s *Server) resolveProjectRequestContext(params map[string]interface{}, defaultToProjectRoot bool) (projectRequestContext, error) {
-	context := s.currentProjectContext()
-	if err := s.validateExpectedProjectGeneration(params); err != nil {
-		return context, err
-	}
-	if err := s.validateRequestedProjectID(params); err != nil {
-		return context, err
-	}
-	requestedCwd := getParamString(params, "cwd")
-	if defaultToProjectRoot || requestedCwd != "" {
-		resolvedCwd, err := resolveProjectScopedCwd(context.projectID, requestedCwd)
-		if err != nil {
-			return context, err
-		}
-		context.cwd = resolvedCwd
-	}
-	return context, nil
+	return s.resolveScope(projectScopeFromParams(params), defaultToProjectRoot)
 }
 
 func (s *Server) normalizeProjectScopedParams(params map[string]interface{}, defaultToProjectRoot bool) (map[string]interface{}, projectRequestContext, error) {

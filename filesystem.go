@@ -422,28 +422,3 @@ func getProjectInfo(rootPath string) *ProjectInfo {
 	return &ProjectInfo{Name: name, Root: rootPath, IsGit: isGit, FileCount: fileCount}
 }
 
-func listProjectDirs() map[string]interface{} {
-	home, _ := os.UserHomeDir()
-	scanDirs := []string{
-		filepath.Join(home, "code"), filepath.Join(home, "Code"),
-		filepath.Join(home, "projects"), filepath.Join(home, "Projects"),
-		filepath.Join(home, "dev"), filepath.Join(home, "Dev"),
-		filepath.Join(home, "src"),
-	}
-	projects := make([]map[string]string, 0)
-	for _, dir := range scanDirs {
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, entry := range entries {
-			if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
-				projects = append(projects, map[string]string{
-					"name": entry.Name(),
-					"path": filepath.Join(dir, entry.Name()),
-				})
-			}
-		}
-	}
-	return map[string]interface{}{"projects": projects}
-}

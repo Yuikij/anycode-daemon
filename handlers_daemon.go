@@ -17,10 +17,12 @@ func (s *Server) handleDaemonConfigRead(req RpcRequest, client *wsClient) (inter
 }
 
 func (s *Server) handleDaemonConfigWrite(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
+	p, err := decodeParams[daemonConfigWriteParams](req)
+	if err != nil {
+		return nil, err
+	}
 	cfg := LoadConfig()
-	proxy := getParamString(params, "proxy")
-	cfg.Proxy = proxy
+	cfg.Proxy = p.Proxy
 	if err := cfg.Save(); err != nil {
 		return nil, err
 	}

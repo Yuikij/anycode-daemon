@@ -8,19 +8,15 @@ func (s *Server) handleCronList(req RpcRequest, client *wsClient) (interface{}, 
 }
 
 func (s *Server) handleCronCreate(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	name := getParamString(params, "name")
-	agent := getParamString(params, "agent")
-	sessionId := getParamString(params, "sessionId")
-	prompt := getParamString(params, "prompt")
-	expression := getParamString(params, "expression")
-	enabled := getParamBool(params, "enabled")
-
-	if name == "" || agent == "" || prompt == "" || expression == "" {
+	p, err := decodeParams[cronCreateParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.Name == "" || p.Agent == "" || p.Prompt == "" || p.Expression == "" {
 		return nil, fmt.Errorf("name, agent, prompt and expression are required")
 	}
 
-	job, err := s.cron.CreateJob(name, agent, sessionId, prompt, expression, enabled)
+	job, err := s.cron.CreateJob(p.Name, p.Agent, p.SessionID, p.Prompt, p.Expression, p.Enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -29,19 +25,15 @@ func (s *Server) handleCronCreate(req RpcRequest, client *wsClient) (interface{}
 }
 
 func (s *Server) handleCronUpdate(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	id := getParamString(params, "id")
-	if id == "" {
+	p, err := decodeParams[cronUpdateParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.ID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
-	name := getParamString(params, "name")
-	agent := getParamString(params, "agent")
-	sessionId := getParamString(params, "sessionId")
-	prompt := getParamString(params, "prompt")
-	expression := getParamString(params, "expression")
-	enabled := getParamBool(params, "enabled")
 
-	job, err := s.cron.UpdateJob(id, name, agent, sessionId, prompt, expression, enabled)
+	job, err := s.cron.UpdateJob(p.ID, p.Name, p.Agent, p.SessionID, p.Prompt, p.Expression, p.Enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -50,12 +42,14 @@ func (s *Server) handleCronUpdate(req RpcRequest, client *wsClient) (interface{}
 }
 
 func (s *Server) handleCronDelete(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	id := getParamString(params, "id")
-	if id == "" {
+	p, err := decodeParams[cronDeleteParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.ID == "" {
 		return nil, fmt.Errorf("id is required")
 	}
-	if err := s.cron.DeleteJob(id); err != nil {
+	if err := s.cron.DeleteJob(p.ID); err != nil {
 		return nil, err
 	}
 	return map[string]bool{"ok": true}, nil

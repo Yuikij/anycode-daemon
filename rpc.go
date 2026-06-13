@@ -103,16 +103,6 @@ func getParamInt(params map[string]interface{}, key string, fallback int) int {
 	return fallback
 }
 
-func getParamBool(params map[string]interface{}, key string) bool {
-	if params == nil {
-		return false
-	}
-	if v, ok := params[key].(bool); ok {
-		return v
-	}
-	return false
-}
-
 func getParamStringSlice(params map[string]interface{}, key string) []string {
 	if params == nil {
 		return nil

@@ -10,8 +10,11 @@ import (
 )
 
 func (s *Server) handleShareCreate(req RpcRequest, client *wsClient) (interface{}, error) {
-	params := getParams(req.Params)
-	html := getParamString(params, "html")
+	p, err := decodeParams[shareCreateParams](req)
+	if err != nil {
+		return nil, err
+	}
+	html := p.HTML
 	if html == "" {
 		return nil, fmt.Errorf("html content is required")
 	}

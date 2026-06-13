@@ -339,13 +339,7 @@ func TestEventsResumeReturnsSequencedEvents(t *testing.T) {
 	server.broadcastRecordedEvent("gemini", "gemini.message.delta", map[string]interface{}{"sessionId": "sess-1"})
 	server.broadcastRecordedEvent("codex", "codex.turn/completed", map[string]interface{}{"threadId": "thread-1"})
 
-	params := json.RawMessage([]byte(`{"afterSeq":0}`))
-	result, err := server.handleEventsResume(RpcRequest{Method: "events.resume", Params: &params}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload := result.(map[string]interface{})
+	payload := server.resumeResult(0, "", true)
 	events := payload["events"].([]eventEnvelope)
 	if len(events) != 2 {
 		t.Fatalf("expected 2 events, got %d", len(events))
@@ -375,13 +369,7 @@ func TestEventsResumeReturnsSnapshotWhenCursorExpired(t *testing.T) {
 	server.broadcastRecordedEvent("claude", "claude.turn/completed", map[string]interface{}{"sessionId": "sess-2"})
 	server.broadcastRecordedEvent("daemon", "project.changed", map[string]interface{}{"projectId": ".", "generation": 1})
 
-	params := json.RawMessage([]byte(`{"afterSeq":1}`))
-	result, err := server.handleEventsResume(RpcRequest{Method: "events.resume", Params: &params}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload := result.(map[string]interface{})
+	payload := server.resumeResult(1, "", true)
 	if !payload["cursorExpired"].(bool) {
 		t.Fatalf("expected cursorExpired true, got %#v", payload["cursorExpired"])
 	}
@@ -920,13 +908,7 @@ func TestEventsResumeReportsCurrentProjectAfterSwitch(t *testing.T) {
 	server.broadcastRecordedEvent("gemini", "gemini.message.delta", map[string]interface{}{"sessionId": "sess-a"})
 	server.switchProject(rootB)
 
-	params := json.RawMessage([]byte(`{"afterSeq":0}`))
-	result, err := server.handleEventsResume(RpcRequest{Method: "events.resume", Params: &params}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	payload := result.(map[string]interface{})
+	payload := server.resumeResult(0, "", true)
 	project := payload["project"].(*ProjectInfo)
 	if project.ProjectID != rootB {
 		t.Fatalf("expected current project %q, got %q", rootB, project.ProjectID)
@@ -1003,27 +985,23 @@ func TestProjectListIncludesPersistedProjectsAcrossRestart(t *testing.T) {
 		}
 	})
 
-	result, err := second.handleProjectList(RpcRequest{Method: "project.list"}, nil)
+	projects, err := second.eventJournal.listProjects()
 	if err != nil {
 		t.Fatal(err)
-	}
-	projects, ok := result.(map[string]interface{})["projects"].([]map[string]interface{})
-	if !ok {
-		t.Fatalf("expected merged project list, got %#v", result)
 	}
 
 	found := false
 	for _, project := range projects {
-		if project["path"] == rootB {
+		if project.Root == rootB {
 			found = true
-			if project["name"] != filepath.Base(rootB) {
+			if project.Name != filepath.Base(rootB) {
 				t.Fatalf("unexpected persisted project name: %#v", project)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected persisted project %q in project.list, got %#v", rootB, projects)
+		t.Fatalf("expected persisted project %q in journal, got %#v", rootB, projects)
 	}
 }
 

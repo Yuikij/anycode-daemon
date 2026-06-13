@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
@@ -481,62 +480,6 @@ func isTerminalOperationStatus(status string) bool {
 	default:
 		return false
 	}
-}
-
-func mergeProjectListings(scanned []map[string]string, persisted []persistedProject) []map[string]interface{} {
-	type projectRow struct {
-		Name         string
-		Path         string
-		LastOpenedAt int64
-	}
-
-	merged := make(map[string]projectRow, len(scanned)+len(persisted))
-	for _, project := range scanned {
-		path := project["path"]
-		if path == "" {
-			continue
-		}
-		merged[path] = projectRow{Name: project["name"], Path: path}
-	}
-	for _, project := range persisted {
-		if project.Root == "" {
-			continue
-		}
-		row := merged[project.Root]
-		if project.Name != "" {
-			row.Name = project.Name
-		}
-		row.Path = project.Root
-		row.LastOpenedAt = project.LastOpenedAt
-		merged[project.Root] = row
-	}
-
-	rows := make([]projectRow, 0, len(merged))
-	for _, row := range merged {
-		if row.Name == "" {
-			row.Name = filepath.Base(row.Path)
-		}
-		rows = append(rows, row)
-	}
-	sort.Slice(rows, func(i, j int) bool {
-		if rows[i].LastOpenedAt != rows[j].LastOpenedAt {
-			return rows[i].LastOpenedAt > rows[j].LastOpenedAt
-		}
-		if rows[i].Name != rows[j].Name {
-			return rows[i].Name < rows[j].Name
-		}
-		return rows[i].Path < rows[j].Path
-	})
-
-	projects := make([]map[string]interface{}, 0, len(rows))
-	for _, row := range rows {
-		projects = append(projects, map[string]interface{}{
-			"name":         row.Name,
-			"path":         row.Path,
-			"lastOpenedAt": row.LastOpenedAt,
-		})
-	}
-	return projects
 }
 
 func (j *eventJournal) loadProjectState(defaultRoot string, defaultGeneration uint64) (string, uint64, error) {

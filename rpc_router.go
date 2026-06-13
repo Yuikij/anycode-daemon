@@ -64,6 +64,11 @@ func (s *Server) switchProject(newRoot string) {
 }
 
 func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, error) {
+	if s.paramValidation && s.paramValidator != nil {
+		if err := s.paramValidator.validate(req.Method, req.Params); err != nil {
+			return nil, err
+		}
+	}
 	if handler, ok := s.routes[req.Method]; ok {
 		return handler(req, client)
 	}
@@ -76,7 +81,6 @@ func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, e
 func (s *Server) initRoutes() {
 	s.routes["daemon.version"] = s.handleDaemonVersion
 	s.routes["client.hello"] = s.handleClientHello
-	s.routes["events.resume"] = s.handleEventsResume
 	s.routes["daemon.configRead"] = s.handleDaemonConfigRead
 	s.routes["daemon.configWrite"] = s.handleDaemonConfigWrite
 	s.routes["share.create"] = s.handleShareCreate
@@ -84,7 +88,6 @@ func (s *Server) initRoutes() {
 	s.routes["fs.readAbsolute"] = s.handleFsReadAbsolute
 	s.routes["fs.writeAbsolute"] = s.handleFsWriteAbsolute
 	s.routes["project.open"] = s.handleProjectOpen
-	s.routes["project.list"] = s.handleProjectList
 	s.routes["fs.tree"] = s.handleFsTree
 	s.routes["git.status"] = s.handleGitStatus
 	s.routes["git.diff"] = s.handleGitDiff
@@ -143,27 +146,46 @@ func (s *Server) handleCodexDynamic(req RpcRequest, client *wsClient) (interface
 
 }
 
+// codexDynamicMethods maps the AnyCode-facing `codex.*` method names that are
+// served via handleCodexDynamic to their underlying app-server RPC names. These
+// are part of the protocol catalog (protocol/methods.json) even though they are
+// not registered in initRoutes, because they are dispatched dynamically.
+var codexDynamicMethods = map[string]string{
+	"codex.threadList":      "thread/list",
+	"codex.threadRead":      "thread/read",
+	"codex.threadStart":     "thread/start",
+	"codex.threadResume":    "thread/resume",
+	"codex.threadArchive":   "thread/archive",
+	"codex.threadUnarchive": "thread/unarchive",
+	"codex.threadRename":    "thread/name/set",
+	"codex.threadRollback":  "thread/rollback",
+	"codex.threadCompact":   "thread/compact",
+	"codex.turnStart":       "turn/start",
+	"codex.turnSteer":       "turn/steer",
+	"codex.turnInterrupt":   "turn/interrupt",
+	"codex.modelList":       "model/list",
+	"codex.configRead":      "config/read",
+}
+
 func codexMethodMap(method string) string {
-	m := map[string]string{
-		"codex.threadList":      "thread/list",
-		"codex.threadRead":      "thread/read",
-		"codex.threadStart":     "thread/start",
-		"codex.threadResume":    "thread/resume",
-		"codex.threadArchive":   "thread/archive",
-		"codex.threadUnarchive": "thread/unarchive",
-		"codex.threadRename":    "thread/name/set",
-		"codex.threadRollback":  "thread/rollback",
-		"codex.threadCompact":   "thread/compact",
-		"codex.turnStart":       "turn/start",
-		"codex.turnSteer":       "turn/steer",
-		"codex.turnInterrupt":   "turn/interrupt",
-		"codex.modelList":       "model/list",
-		"codex.configRead":      "config/read",
-	}
-	if v, ok := m[method]; ok {
+	if v, ok := codexDynamicMethods[method]; ok {
 		return v
 	}
 	return method
+}
+
+// registeredMethodNames returns every RPC method the daemon can serve: the
+// statically registered routes plus the named dynamic codex passthroughs. This
+// is the runtime view that protocol/methods.json is validated against.
+func (s *Server) registeredMethodNames() []string {
+	names := make([]string, 0, len(s.routes)+len(codexDynamicMethods))
+	for name := range s.routes {
+		names = append(names, name)
+	}
+	for name := range codexDynamicMethods {
+		names = append(names, name)
+	}
+	return names
 }
 
 func codexAppServerArgs() []string {
