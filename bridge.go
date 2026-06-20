@@ -13,7 +13,7 @@ import (
 )
 
 // AgentBridge manages a CLI agent subprocess communicating via stdio JSON-RPC.
-// Designed to be reusable for Codex, Gemini CLI, Copilot, etc.
+// Designed to be reusable for Codex, Claude, Cursor, Copilot, etc.
 type AgentBridge struct {
 	mu          sync.Mutex
 	cmd         *exec.Cmd
@@ -223,11 +223,13 @@ func (b *AgentBridge) Send(method string, params interface{}) (interface{}, erro
 }
 
 func (b *AgentBridge) SendContext(ctx context.Context, method string, params interface{}) (interface{}, error) {
+	log.Printf("[agent] SendContext method=%s", method)
 	if !b.IsRunning() {
 		return nil, fmt.Errorf("agent is not running")
 	}
 
 	b.mu.Lock()
+
 	b.requestID++
 	id := b.requestID
 	generation := b.generation
@@ -252,6 +254,7 @@ func (b *AgentBridge) SendContext(ctx context.Context, method string, params int
 
 	select {
 	case res := <-ch:
+		log.Printf("[agent] SendContext method=%s returned", method)
 		if res.Error != nil {
 			return nil, formatAgentRPCError(res.Error)
 		}

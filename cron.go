@@ -126,21 +126,6 @@ func (cm *CronManager) executeJob(jobID string) {
 	var err error
 
 	switch job.Agent {
-	case "gemini":
-		if sessionID == "" {
-			if !cm.server.gemini.IsRunning() {
-				_ = cm.server.gemini.Start()
-			}
-			res, err := cm.server.gemini.NewSession(cm.server.projectRoot)
-			if err == nil && res["sessionId"] != nil {
-				sessionID = res["sessionId"].(string)
-				cm.updateJobSession(jobID, sessionID)
-			}
-		}
-		if sessionID != "" {
-			_, err = cm.server.gemini.Prompt(sessionID, job.Prompt, nil)
-		}
-
 	case "claude":
 		if sessionID == "" {
 			sessionID, err = cm.server.claude.NewSession(cm.server.projectRoot)
@@ -249,14 +234,6 @@ func (cm *CronManager) createSessionForJob(jobID, agent string) {
 	// Runs in a goroutine
 	sessionID := ""
 	switch agent {
-	case "gemini":
-		if !cm.server.gemini.IsRunning() {
-			_ = cm.server.gemini.Start()
-		}
-		res, err := cm.server.gemini.NewSession(cm.server.projectRoot)
-		if err == nil && res["sessionId"] != nil {
-			sessionID = res["sessionId"].(string)
-		}
 	case "claude":
 		sessionID, _ = cm.server.claude.NewSession(cm.server.projectRoot)
 	case "codex":

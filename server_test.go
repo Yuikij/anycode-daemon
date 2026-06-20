@@ -282,31 +282,9 @@ func TestRuntimeManagerStartResponseForClaudeIncludesConfigAndCwd(t *testing.T) 
 	}
 }
 
-func TestRuntimeManagerPromptAcceptedResponseForGeminiPreservesPayload(t *testing.T) {
-	manager := NewAgentRuntimeManager(NewGeminiRuntime(NewGeminiBridge()))
-	response := manager.PromptAcceptedResponse("gemini", PromptResponse{
-		OperationID: "gemini-op-1",
-		Payload: map[string]interface{}{
-			"sessionId":   "gemini-session-1",
-			"operationId": "gemini-op-1",
-			"accepted":    true,
-		},
-	})
-
-	if response["ok"] != true {
-		t.Fatalf("expected ok=true, got %#v", response)
-	}
-	if response["sessionId"] != "gemini-session-1" || response["accepted"] != true {
-		t.Fatalf("expected Gemini payload to be preserved, got %#v", response)
-	}
-	if response["operationId"] != "gemini-op-1" {
-		t.Fatalf("expected operationId to be preserved, got %#v", response)
-	}
-}
-
 func TestRuntimeManagerActionResponsePreservesExplicitFailure(t *testing.T) {
-	manager := NewAgentRuntimeManager(NewGeminiRuntime(NewGeminiBridge()))
-	response := manager.ActionResponse("gemini", map[string]interface{}{
+	manager := NewAgentRuntimeManager(NewCursorRuntime(NewCursorBridge()))
+	response := manager.ActionResponse("cursor", map[string]interface{}{
 		"ok":    false,
 		"error": "session list failed",
 	})
@@ -395,7 +373,7 @@ func TestEventsResumeReturnsSnapshotWhenCursorExpired(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected agent snapshots, got %#v", snapshot["agents"])
 	}
-	for _, agent := range []string{"codex", "claude", "gemini"} {
+	for _, agent := range []string{"codex", "claude"} {
 		if _, ok := agents[agent].(map[string]interface{}); !ok {
 			t.Fatalf("expected %s snapshot, got %#v", agent, agents[agent])
 		}
@@ -676,9 +654,6 @@ func TestServerRestoresProjectStateAcrossRestart(t *testing.T) {
 	if generation != 2 {
 		t.Fatalf("expected restored generation 2, got %d", generation)
 	}
-	if second.gemini.agent.Cwd() != rootB {
-		t.Fatalf("expected gemini cwd %q, got %q", rootB, second.gemini.agent.Cwd())
-	}
 	if second.claude.agent.Cwd() != rootB {
 		t.Fatalf("expected claude cwd %q, got %q", rootB, second.claude.agent.Cwd())
 	}
@@ -698,7 +673,6 @@ func TestTaskStatusRestoresPersistedAgentSessionsAcrossRestart(t *testing.T) {
 		t.Fatalf("first NewServer failed: %v", err)
 	}
 	first.persistAgentSessionState("claude", "claude-session-1")
-	first.persistAgentSessionState("gemini", "gemini-session-1")
 	if err := first.Close(); err != nil {
 		t.Fatalf("first Server.Close failed: %v", err)
 	}
@@ -720,15 +694,7 @@ func TestTaskStatusRestoresPersistedAgentSessionsAcrossRestart(t *testing.T) {
 	if claudeStatus.(map[string]interface{})["sessionId"] != "claude-session-1" {
 		t.Fatalf("expected restored claude session, got %#v", claudeStatus)
 	}
-
-	geminiStatus, err := second.handleGeminiTaskStatus(RpcRequest{Method: "gemini.taskStatus"}, nil)
-	if err != nil {
-		t.Fatalf("gemini task status failed: %v", err)
-	}
-	if geminiStatus.(map[string]interface{})["sessionId"] != "gemini-session-1" {
-		t.Fatalf("expected restored gemini session, got %#v", geminiStatus)
-	}
-	if claudeStatus.(map[string]interface{})["running"].(bool) || geminiStatus.(map[string]interface{})["running"].(bool) {
+	if claudeStatus.(map[string]interface{})["running"].(bool) {
 		t.Fatalf("expected restored task status to remain non-running after restart")
 	}
 }
@@ -796,54 +762,6 @@ func TestClaudeTaskStatusRestoresOperationAndPermissionSnapshotsAcrossRestart(t 
 	}
 	if lastPermission["requestId"] != "perm-1" || lastPermission["status"] != "expired" {
 		t.Fatalf("unexpected restored permission snapshot: %#v", lastPermission)
-	}
-}
-
-func TestGeminiTaskStatusRestoresLastOperationAcrossRestart(t *testing.T) {
-	root := t.TempDir()
-	statePath := filepath.Join(t.TempDir(), "state.db")
-	t.Setenv("ANYCODE_STATE_DB_PATH", statePath)
-
-	first, err := NewServer(0, root, "secret-token")
-	if err != nil {
-		t.Fatalf("first NewServer failed: %v", err)
-	}
-	first.persistAgentSessionState("gemini", "gemini-session-1")
-	if err := first.eventJournal.upsertOperation(persistedOperation{
-		OperationID: "gemini-op-1",
-		Agent:       "gemini",
-		SessionID:   "gemini-session-1",
-		Status:      "running",
-		StartedAt:   100,
-		UpdatedAt:   100,
-	}); err != nil {
-		t.Fatalf("persist operation failed: %v", err)
-	}
-	if err := first.Close(); err != nil {
-		t.Fatalf("first Server.Close failed: %v", err)
-	}
-
-	second, err := NewServer(0, root, "secret-token")
-	if err != nil {
-		t.Fatalf("second NewServer failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := second.Close(); err != nil {
-			t.Fatalf("second Server.Close failed: %v", err)
-		}
-	})
-
-	result, err := second.handleGeminiTaskStatus(RpcRequest{Method: "gemini.taskStatus"}, nil)
-	if err != nil {
-		t.Fatalf("gemini task status failed: %v", err)
-	}
-	status := result.(map[string]interface{})
-	lastOperation, ok := status["lastOperation"].(map[string]interface{})
-	if !ok {
-		t.Fatalf("expected lastOperation payload, got %#v", status)
-	}
-	if lastOperation["operationId"] != "gemini-op-1" || lastOperation["status"] != "interrupted" {
-		t.Fatalf("unexpected restored operation snapshot: %#v", lastOperation)
 	}
 }
 
@@ -1042,43 +960,6 @@ func TestClaudeTaskStatusRestoresPersistedSessionAcrossRestart(t *testing.T) {
 	}
 }
 
-func TestGeminiTaskStatusRestoresPersistedSessionAcrossRestart(t *testing.T) {
-	root := t.TempDir()
-	statePath := filepath.Join(t.TempDir(), "state.db")
-	t.Setenv("ANYCODE_STATE_DB_PATH", statePath)
-
-	first, err := NewServer(0, root, "secret-token")
-	if err != nil {
-		t.Fatalf("first NewServer failed: %v", err)
-	}
-	first.persistAgentSessionState("gemini", "gemini-session-1")
-	if err := first.Close(); err != nil {
-		t.Fatalf("first Server.Close failed: %v", err)
-	}
-
-	second, err := NewServer(0, root, "secret-token")
-	if err != nil {
-		t.Fatalf("second NewServer failed: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := second.Close(); err != nil {
-			t.Fatalf("second Server.Close failed: %v", err)
-		}
-	})
-
-	status, err := second.handleGeminiTaskStatus(RpcRequest{Method: "gemini.taskStatus"}, nil)
-	if err != nil {
-		t.Fatalf("gemini task status failed: %v", err)
-	}
-	payload := status.(map[string]interface{})
-	if payload["sessionId"] != "gemini-session-1" {
-		t.Fatalf("expected restored gemini session, got %#v", payload)
-	}
-	if payload["running"].(bool) {
-		t.Fatalf("expected restored gemini session to be idle, got %#v", payload)
-	}
-}
-
 func TestFsWriteAbsoluteRejectsStaleProjectGeneration(t *testing.T) {
 	rootA := t.TempDir()
 	rootB := t.TempDir()
@@ -1139,25 +1020,6 @@ func TestClaudeNewSessionRejectsStaleProjectGeneration(t *testing.T) {
 	params := json.RawMessage(encodedParams)
 	if _, err := server.handleClaudeNewSession(RpcRequest{Method: "claude.newSession", Params: &params}, nil); err == nil {
 		t.Fatal("expected stale generation claude.newSession to fail")
-	}
-}
-
-func TestGeminiStartRejectsStaleProjectGeneration(t *testing.T) {
-	rootA := t.TempDir()
-	rootB := t.TempDir()
-	server := newTestServer(t, rootA)
-	server.switchProject(rootB)
-
-	encodedParams, err := json.Marshal(map[string]interface{}{
-		"cwd":                       rootA,
-		"expectedProjectGeneration": 1,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	params := json.RawMessage(encodedParams)
-	if _, err := server.handleGeminiStart(RpcRequest{Method: "gemini.start", Params: &params}, nil); err == nil {
-		t.Fatal("expected stale generation gemini.start to fail")
 	}
 }
 
@@ -1339,12 +1201,6 @@ func TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings(t *testing.T) {
 			method:      "claude.start",
 			wantCwdPath: rootB,
 		},
-		{
-			name:        "gemini.start",
-			call:        func(req RpcRequest) (interface{}, error) { return server.handleGeminiStart(req, nil) },
-			method:      "gemini.start",
-			wantCwdPath: rootB,
-		},
 	}
 
 	for _, tt := range tests {
@@ -1386,33 +1242,3 @@ func TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings(t *testing.T) {
 	}
 }
 
-func TestGeminiTaskStatusIncludesRecentEvents(t *testing.T) {
-	bridge := NewGeminiBridge()
-	bridge.taskRunning = true
-	bridge.taskStartedAt = time.Unix(30, 0)
-	bridge.currentOperationID = "gemini-op-1"
-	bridge.emit("session/init", map[string]interface{}{"sessionId": "sess-1"})
-	bridge.emit("message/assistant", map[string]interface{}{"sessionId": "sess-1", "content": "hi"})
-
-	status := bridge.TaskStatus()
-	if !status["running"].(bool) {
-		t.Fatal("expected gemini task to be running")
-	}
-	if status["sessionId"].(string) != "sess-1" {
-		t.Fatalf("unexpected session id: %#v", status["sessionId"])
-	}
-	if status["operationId"].(string) != "gemini-op-1" {
-		t.Fatalf("unexpected operation id: %#v", status["operationId"])
-	}
-	events := status["recentEvents"].([]cachedNotification)
-	if len(events) != 2 {
-		t.Fatalf("expected 2 cached gemini events, got %d", len(events))
-	}
-	if events[0].Params.(map[string]interface{})["operationId"] != "gemini-op-1" {
-		t.Fatalf("expected operationId on cached event, got %#v", events[0].Params)
-	}
-	bridge.emit("turn/completed", map[string]interface{}{"sessionId": "sess-1"})
-	if bridge.TaskStatus()["running"].(bool) {
-		t.Fatal("expected gemini task to stop after turn/completed")
-	}
-}

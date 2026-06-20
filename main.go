@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.7.2"
+const Version = "0.7.6"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -204,8 +204,8 @@ func cmdStart(args []string) {
 		<-sigCh
 		fmt.Println("\n  Shutting down...")
 		server.codex.Stop()
-		server.gemini.Stop()
 		server.claude.Stop()
+		server.cursor.Stop()
 		if daemonized {
 			removePidFile()
 		}

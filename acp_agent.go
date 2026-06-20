@@ -363,7 +363,7 @@ func normalizeMapResult(raw interface{}) map[string]interface{} {
 func (a *AcpAgent) handleRequest(id interface{}, method string, params interface{}) {
 	log.Printf("[%s] ACP request: %s", a.config.ID, method)
 
-	// ACP permission methods: claude-code-acp / Gemini use the spec name
+	// ACP permission methods: claude-code-acp / Cursor use the spec name
 	// `session/request_permission`, some older bridges send `requestPermission`.
 	if method == "session/request_permission" || method == "requestPermission" {
 		paramsMap, _ := params.(map[string]interface{})

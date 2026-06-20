@@ -121,7 +121,7 @@ func TestClientHelloAdvertisesMethodCatalog(t *testing.T) {
 	for _, m := range methods {
 		advertised[m] = true
 	}
-	for _, expected := range []string{"client.hello", "claude.prompt", "codex.threadStart", "gemini.start"} {
+	for _, expected := range []string{"client.hello", "claude.prompt", "codex.threadStart", "cursor.prompt"} {
 		if !advertised[expected] {
 			t.Fatalf("expected advertised method %q, got %#v", expected, methods)
 		}

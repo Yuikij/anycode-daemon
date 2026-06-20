@@ -111,50 +111,6 @@
     { "name": "codex.turnInterrupt", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Interrupt a Codex turn (turn/interrupt)." },
     { "name": "codex.modelList", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "List Codex models (model/list)." },
 
-    { "name": "gemini.start", "group": "gemini", "clients": ["web", "ios"], "summary": "Start/attach the Gemini agent.", "params": [
-      { "name": "cwd", "type": "string" },
-      { "name": "projectId", "type": "string" },
-      { "name": "expectedProjectGeneration", "type": "number" }
-    ] },
-    { "name": "gemini.status", "group": "gemini", "clients": ["ios"], "summary": "Poll Gemini agent status.", "params": [] },
-    { "name": "gemini.newSession", "group": "gemini", "clients": ["web", "ios"], "summary": "Create a new Gemini session.", "params": [
-      { "name": "cwd", "type": "string" },
-      { "name": "projectId", "type": "string" },
-      { "name": "expectedProjectGeneration", "type": "number" }
-    ] },
-    { "name": "gemini.loadSession", "group": "gemini", "clients": ["web", "ios"], "summary": "Load an existing Gemini session.", "params": [
-      { "name": "sessionId", "type": "string", "required": true },
-      { "name": "cwd", "type": "string" },
-      { "name": "projectId", "type": "string" },
-      { "name": "expectedProjectGeneration", "type": "number" }
-    ] },
-    { "name": "gemini.prompt", "group": "gemini", "clients": ["web", "ios"], "summary": "Send a prompt to Gemini.", "params": [
-      { "name": "sessionId", "type": "string", "required": true },
-      { "name": "prompt", "type": "string" },
-      { "name": "text", "type": "string" },
-      { "name": "images", "type": "string[]" },
-      { "name": "cwd", "type": "string" },
-      { "name": "projectId", "type": "string" },
-      { "name": "expectedProjectGeneration", "type": "number" }
-    ] },
-    { "name": "gemini.cancel", "group": "gemini", "clients": ["web", "ios"], "summary": "Cancel the active Gemini turn.", "params": [
-      { "name": "sessionId", "type": "string" }
-    ] },
-    { "name": "gemini.taskStatus", "group": "gemini", "clients": ["web", "ios"], "summary": "Gemini authoritative task snapshot (also delivered via client.hello).", "params": [] },
-    { "name": "gemini.setMode", "group": "gemini", "clients": ["web", "ios"], "summary": "Set the Gemini approval mode.", "params": [
-      { "name": "sessionId", "type": "string", "required": true },
-      { "name": "modeId", "type": "string", "required": true }
-    ] },
-    { "name": "gemini.setModel", "group": "gemini", "clients": ["web", "ios"], "summary": "Set the Gemini model.", "params": [
-      { "name": "sessionId", "type": "string", "required": true },
-      { "name": "modelId", "type": "string", "required": true }
-    ] },
-    { "name": "gemini.sessionList", "group": "gemini", "clients": ["web", "ios"], "summary": "List Gemini sessions.", "params": [
-      { "name": "cwd", "type": "string" },
-      { "name": "projectId", "type": "string" },
-      { "name": "expectedProjectGeneration", "type": "number" }
-    ] },
-
     { "name": "claude.start", "group": "claude", "clients": ["web", "ios"], "summary": "Start/attach the Claude agent.", "params": [
       { "name": "cwd", "type": "string" },
       { "name": "projectId", "type": "string" },
@@ -210,6 +166,51 @@
     { "name": "claude.stop", "group": "claude", "clients": ["web", "ios"], "summary": "Stop the Claude agent.", "params": [] },
     { "name": "claude.taskStatus", "group": "claude", "clients": ["web", "ios"], "summary": "Claude authoritative task snapshot (also delivered via client.hello).", "params": [] },
     { "name": "claude.permission/respond", "group": "claude", "clients": ["web", "ios"], "summary": "Respond to a Claude permission request.", "params": [
+      { "name": "requestId", "type": "string", "required": true },
+      { "name": "optionId", "type": "string" },
+      { "name": "cancelled", "type": "boolean" }
+    ] },
+
+    { "name": "cursor.start", "group": "cursor", "clients": ["web", "ios"], "summary": "Start/attach the Cursor agent (agent acp).", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "cursor.status", "group": "cursor", "clients": ["ios"], "summary": "Poll Cursor agent status.", "params": [] },
+    { "name": "cursor.sessionList", "group": "cursor", "clients": ["web", "ios"], "summary": "List Cursor sessions (best-effort via `agent ls`).", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "cursor.loadSession", "group": "cursor", "clients": ["web", "ios"], "summary": "Load an existing Cursor session.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "cursor.newSession", "group": "cursor", "clients": ["web", "ios"], "summary": "Create a new Cursor session.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "cursor.setConfig", "group": "cursor", "clients": ["web", "ios"], "summary": "Update Cursor config (model/mode).", "params": [
+      { "name": "model", "type": "string" },
+      { "name": "mode", "type": "string" }
+    ] },
+    { "name": "cursor.prompt", "group": "cursor", "clients": ["web", "ios"], "summary": "Send a prompt to Cursor.", "params": [
+      { "name": "prompt", "type": "string" },
+      { "name": "text", "type": "string" },
+      { "name": "images", "type": "string[]" },
+      { "name": "model", "type": "string" },
+      { "name": "mode", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "cursor.cancel", "group": "cursor", "clients": ["web", "ios"], "summary": "Cancel the active Cursor turn.", "params": [] },
+    { "name": "cursor.stop", "group": "cursor", "clients": ["web", "ios"], "summary": "Stop the Cursor agent.", "params": [] },
+    { "name": "cursor.taskStatus", "group": "cursor", "clients": ["web", "ios"], "summary": "Cursor authoritative task snapshot (also delivered via client.hello).", "params": [] },
+    { "name": "cursor.permission/respond", "group": "cursor", "clients": ["web", "ios"], "summary": "Respond to a Cursor permission request.", "params": [
       { "name": "requestId", "type": "string", "required": true },
       { "name": "optionId", "type": "string" },
       { "name": "cancelled", "type": "boolean" }

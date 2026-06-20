@@ -121,10 +121,11 @@ func (s *Server) helloAgentStatus(includeProjectGeneration bool) map[string]inte
 			LastOperation:  s.latestOperationPayload("claude"),
 			LastPermission: s.latestPermissionPayload("claude"),
 		}),
-		"gemini": s.runtime.TaskSnapshot("gemini", RuntimeSnapshotOptions{
-			LatestSeq:     options.LatestSeq,
-			Project:       options.Project,
-			LastOperation: s.latestOperationPayload("gemini"),
+		"cursor": s.runtime.TaskSnapshot("cursor", RuntimeSnapshotOptions{
+			LatestSeq:      options.LatestSeq,
+			Project:        options.Project,
+			LastOperation:  s.latestOperationPayload("cursor"),
+			LastPermission: s.latestPermissionPayload("cursor"),
 		}),
 	}
 	shaped := shapeSnapshotPayload(map[string]interface{}{"agents": statuses}, includeProjectGeneration)
@@ -307,8 +308,9 @@ func (s *Server) agentResumeSnapshot(agent string, latestSeq uint64, project *Pr
 		options.LastPermission = s.latestPermissionPayload("claude")
 	case "codex":
 		options.LastOperation = s.latestOperationPayload("codex")
-	case "gemini":
-		options.LastOperation = s.latestOperationPayload("gemini")
+	case "cursor":
+		options.LastOperation = s.latestOperationPayload("cursor")
+		options.LastPermission = s.latestPermissionPayload("cursor")
 	}
 
 	return s.runtime.TaskSnapshot(agent, options)
@@ -322,7 +324,6 @@ func (s *Server) resumeSnapshot(latestSeq uint64) map[string]interface{} {
 		"agents": map[string]interface{}{
 			"codex":  s.agentResumeSnapshot("codex", latestSeq, project),
 			"claude": s.agentResumeSnapshot("claude", latestSeq, project),
-			"gemini": s.agentResumeSnapshot("gemini", latestSeq, project),
 		},
 	}
 }

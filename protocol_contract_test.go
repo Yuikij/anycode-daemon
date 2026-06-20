@@ -160,7 +160,7 @@ func assertHelloSample(t *testing.T, sample protocolHelloSample, expectGeneratio
 	if sample.LatestSeq != sample.Resume.LatestSeq {
 		t.Fatalf("expected hello latestSeq to match nested resume latestSeq, got hello=%d resume=%d", sample.LatestSeq, sample.Resume.LatestSeq)
 	}
-	for _, agent := range []string{"codex", "claude", "gemini"} {
+	for _, agent := range []string{"codex", "claude"} {
 		if _, ok := sample.Agents[agent]; !ok {
 			t.Fatalf("expected %s hello agent payload, got %#v", agent, sample.Agents)
 		}
@@ -223,7 +223,7 @@ func TestProtocolSampleExpiredResponseShape(t *testing.T) {
 	if sample.Snapshot.LatestSeq != sample.LatestSeq {
 		t.Fatalf("expected snapshot latestSeq to match top-level latestSeq, got snapshot=%d latest=%d", sample.Snapshot.LatestSeq, sample.LatestSeq)
 	}
-	for _, agent := range []string{"codex", "claude", "gemini"} {
+	for _, agent := range []string{"codex", "claude"} {
 		payload, ok := sample.Snapshot.Agents[agent]
 		if !ok {
 			t.Fatalf("expected %s snapshot payload, got %#v", agent, sample.Snapshot.Agents)

@@ -42,6 +42,55 @@ const (
 	ctrlWait   = 30 * time.Second
 )
 
+// Application-level relay keepalive. The relay link rides through a Cloudflare
+// Durable Object, and Cloudflare's edge auto-answers *protocol* ping/pong frames
+// WITHOUT involving the DO (by design, even while it is hibernated). That means
+// protocol pings can't detect a dead DO<->daemon path: after an idle hibernation,
+// eviction or migration the socket can silently desync — the daemon keeps getting
+// edge pongs and thinks it is healthy, while frames no longer reach it and clients
+// hang on "connecting" forever (no response, no agentOffline).
+//
+// To detect this we run an app-level round-trip that MUST traverse the DO: the
+// daemon sends `relay.ping`, the DO answers `relay.pong` in JS. If no `relay.pong`
+// arrives within relayPongWait, the path is dead and we drop the link so the
+// outbound relay loop reconnects with a fresh agent registration. This only runs
+// on the relay link; direct local clients keep using protocol ping/pong (no edge
+// in between, so it isn't faked).
+//
+// Cadence is deliberately gentle: each relay.ping wakes the DO from hibernation,
+// so a short interval would keep every idle device's DO mostly active (cost). A
+// 45s interval still self-heals a zombie link within ~2min while letting an idle
+// DO hibernate most of the time. The watchdog never tight-loops (one drop per
+// window, then relayLoop backs off), and enforcement is gated on having seen at
+// least one relay.pong, so a DO that doesn't answer never triggers reconnects.
+const (
+	relayPingPeriod = 45 * time.Second
+	relayPongWait   = 120 * time.Second
+)
+
+var (
+	relayPingFrame = []byte(`{"jsonrpc":"2.0","method":"relay.ping"}`)
+)
+
+// Per-connection send buffering and backpressure. Agents (codex/claude/...) stream
+// hundreds–thousands of small events per turn, all fanned out via broadcast(). A
+// direct local client drains microseconds-fast so a small buffer never fills, but
+// the relay link rides through Cloudflare (much higher write latency), so a tight
+// 256-frame buffer overflows mid-turn. The old policy hard-closed on overflow,
+// which tore the relay link down on nearly every codex turn — stable locally,
+// "extremely unstable" over relay.
+//
+// Fix: give the relay link a much larger buffer (it also multiplexes every client),
+// and on overflow apply *bounded backpressure* (briefly block, throttling the agent
+// pump) instead of instantly dropping. Only a genuinely stuck/dead link (no drain
+// for sendBlockTimeout) is closed. Backpressure is correct here because agent event
+// streams must stay ordered and gap-free; dropping frames would corrupt the stream.
+const (
+	relaySendBuffer  = 4096
+	clientSendBuffer = 512
+	sendBlockTimeout = 20 * time.Second
+)
+
 type Server struct {
 	port              int
 	token             string
@@ -49,8 +98,8 @@ type Server struct {
 	projectGeneration uint64
 
 	codex   *AgentBridge
-	gemini  *GeminiBridge
 	claude  *ClaudeBridge
+	cursor  *CursorBridge
 	runtime *AgentRuntimeManager
 
 	cron *CronManager
@@ -99,8 +148,8 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		projectRoot:       projectRoot,
 		projectGeneration: projectGeneration,
 		codex:             NewAgentBridge(),
-		gemini:            NewGeminiBridge(),
 		claude:            NewClaudeBridge(),
+		cursor:            NewCursorBridge(),
 		clients:           make(map[*wsClient]struct{}),
 		routes:            make(map[string]func(req RpcRequest, client *wsClient) (interface{}, error)),
 		eventJournal:      journal,
@@ -108,7 +157,7 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 	s.runtime = NewAgentRuntimeManager(
 		NewCodexRuntime(s.codex),
 		NewClaudeRuntime(s.claude),
-		NewGeminiRuntime(s.gemini),
+		NewCursorRuntime(s.cursor),
 	)
 	if err := journal.upsertProject(projectRoot, filepath.Base(projectRoot), nowUnixMilli()); err != nil {
 		_ = journal.close()
@@ -135,17 +184,18 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		}))
 	}
 
-	s.gemini.SetCwd(s.projectRoot)
-	s.gemini.OnNotification = func(method string, params interface{}) {
-		s.recordAgentOperationEvent("gemini", method, params)
-		s.broadcastRecordedEvent("gemini", "gemini."+method, params)
-	}
-
 	s.claude.SetCwd(s.projectRoot)
 	s.claude.OnNotification = func(method string, params interface{}) {
 		s.recordAgentOperationEvent("claude", method, params)
 		s.recordClaudePermissionEvent(method, params)
 		s.broadcastRecordedEvent("claude", "claude."+method, params)
+	}
+
+	s.cursor.SetCwd(s.projectRoot)
+	s.cursor.OnNotification = func(method string, params interface{}) {
+		s.recordAgentOperationEvent("cursor", method, params)
+		s.recordCursorPermissionEvent(method, params)
+		s.broadcastRecordedEvent("cursor", "cursor."+method, params)
 	}
 	if err := s.restorePersistedAgentSessions(); err != nil {
 		_ = journal.close()
@@ -309,14 +359,18 @@ func (s *Server) restorePersistedAgentSessions() error {
 		return err
 	}
 	for _, state := range states {
-		switch state.Agent {
-		case "claude":
-			s.runtime.MustRuntime("claude").RestoreSession(state.SessionID)
-		case "gemini":
-			s.runtime.MustRuntime("gemini").RestoreSession(state.SessionID)
-		case "codex":
-			s.runtime.MustRuntime("codex").RestoreSession(state.ThreadID)
+		// Use Runtime (not MustRuntime) and skip unknown agents so a previously
+		// persisted session for a now-removed agent (e.g. the retired gemini
+		// integration) doesn't panic the daemon on startup after an upgrade.
+		sessionID := state.SessionID
+		if state.Agent == "codex" {
+			sessionID = state.ThreadID
 		}
+		runtime, err := s.runtime.Runtime(state.Agent)
+		if err != nil {
+			continue
+		}
+		runtime.RestoreSession(sessionID)
 	}
 	return nil
 }
@@ -345,6 +399,14 @@ func (s *Server) recordAgentOperationEvent(agent, method string, params interfac
 }
 
 func (s *Server) recordClaudePermissionEvent(method string, params interface{}) {
+	s.recordAgentPermissionEvent("claude", method, params)
+}
+
+func (s *Server) recordCursorPermissionEvent(method string, params interface{}) {
+	s.recordAgentPermissionEvent("cursor", method, params)
+}
+
+func (s *Server) recordAgentPermissionEvent(agent, method string, params interface{}) {
 	if !strings.HasPrefix(method, "permission/") {
 		return
 	}
@@ -367,7 +429,7 @@ func (s *Server) recordClaudePermissionEvent(method string, params interface{}) 
 	}
 	s.persistPermissionSnapshot(persistedPermission{
 		RequestID:   requestID,
-		Agent:       "claude",
+		Agent:       agent,
 		SessionID:   stringParam(params, "sessionId"),
 		ToolName:    stringParam(params, "toolName"),
 		Status:      status,

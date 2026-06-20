@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,8 +20,17 @@ type wsClient struct {
 func (c *wsClient) send(data []byte) {
 	select {
 	case c.sendChan <- data:
+		return
 	default:
-		c.conn.Close() // slow client, disconnect
+	}
+	// Buffer full: the writer is briefly behind (typical during an agent streaming
+	// burst over the higher-latency relay link). Apply bounded backpressure instead
+	// of instantly dropping the connection; only close a genuinely stuck/dead link.
+	select {
+	case c.sendChan <- data:
+	case <-time.After(sendBlockTimeout):
+		log.Printf("[server] send buffer stuck for %s on %q; closing link", sendBlockTimeout, c.host)
+		c.conn.Close()
 	}
 }
 
@@ -52,17 +62,55 @@ func (c *wsClient) writePump(done chan struct{}) {
 	}
 }
 
+// relayKeepalive sends an app-level relay.ping over the relay link and drops the
+// connection if no relay.pong (answered in JS by the relay Durable Object) comes
+// back in time. See the relayPingPeriod/relayPongWait comment for why protocol
+// ping/pong is insufficient for the relay path.
+func (s *Server) relayKeepalive(client *wsClient, conn *websocket.Conn, done chan struct{}, lastPong, pongSeen *int64) {
+	ticker := time.NewTicker(relayPingPeriod)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			// Only enforce the dead-link timeout once we've seen at least one
+			// relay.pong on this connection. This feature-detects a relay DO that
+			// understands relay.ping, so the daemon can ship before the DO is
+			// updated without churning against an old DO (which would never answer
+			// and look permanently dead). A healthy updated DO replies on the first
+			// ping, so enforcement activates within one interval.
+			if atomic.LoadInt64(pongSeen) != 0 {
+				last := time.Unix(0, atomic.LoadInt64(lastPong))
+				if time.Since(last) > relayPongWait {
+					log.Printf("[relay] no relay.pong within %s; dropping dead relay link to reconnect", relayPongWait)
+					conn.Close() // unblocks ReadMessage -> serveConn returns -> relayLoop reconnects
+					return
+				}
+			}
+			client.send(relayPingFrame)
+		}
+	}
+}
+
 func (s *Server) broadcast(msg interface{}) {
 	data, err := json.Marshal(msg)
 	if err != nil {
 		return
 	}
+	// Snapshot the authed clients under the lock, then send outside it: send() may
+	// now block (bounded backpressure), and we must not hold s.mu while it does,
+	// or a slow link would stall connects/disconnects and other broadcasts.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	clients := make([]*wsClient, 0, len(s.clients))
 	for c := range s.clients {
 		if c.authed {
-			c.send(data)
+			clients = append(clients, c)
 		}
+	}
+	s.mu.RUnlock()
+	for _, c := range clients {
+		c.send(data)
 	}
 }
 
@@ -88,10 +136,18 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 
 	conn.SetReadLimit(10 * 1024 * 1024)
 
+	// The relay link multiplexes every remote client and rides the higher-latency
+	// Cloudflare path, so it needs a much larger send buffer to absorb agent
+	// streaming bursts without dropping.
+	isRelay := hostLabel == "relay"
+	sendBuffer := clientSendBuffer
+	if isRelay {
+		sendBuffer = relaySendBuffer
+	}
 	client := &wsClient{
 		conn:     conn,
 		host:     hostLabel,
-		sendChan: make(chan []byte, 256),
+		sendChan: make(chan []byte, sendBuffer),
 	}
 
 	s.mu.Lock()
@@ -107,6 +163,16 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 
 	done := make(chan struct{})
 	go client.writePump(done)
+
+	// The relay link needs app-level keepalive (its protocol pongs are faked by
+	// the Cloudflare edge, so they can't detect a dead DO path). Direct local
+	// clients are unaffected.
+	var lastRelayPong int64
+	var relayPongSeen int64
+	if isRelay {
+		atomic.StoreInt64(&lastRelayPong, time.Now().UnixNano())
+		go s.relayKeepalive(client, conn, done, &lastRelayPong, &relayPongSeen)
+	}
 
 	defer func() {
 		close(done)
@@ -130,6 +196,16 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 		if err := json.Unmarshal(data, &req); err != nil {
 			reply, _ := json.Marshal(makeError(0, -32700, "Parse error"))
 			client.send(reply)
+			continue
+		}
+
+		// relay.pong answers our relay.ping liveness probe (see relayKeepalive).
+		// It carries no id; handle it before id validation and don't reply.
+		if req.Method == "relay.pong" {
+			if isRelay {
+				atomic.StoreInt64(&lastRelayPong, time.Now().UnixNano())
+				atomic.StoreInt64(&relayPongSeen, 1)
+			}
 			continue
 		}
 
@@ -211,14 +287,24 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 			continue
 		}
 
-		// Handle request
-		result, herr := s.handleRequest(req, client)
-		var reply []byte
-		if herr != nil {
-			reply, _ = json.Marshal(makeError(id, -32000, herr.Error()))
-		} else {
-			reply, _ = json.Marshal(makeResponse(id, result))
-		}
-		client.send(reply)
+		// Dispatch the (potentially slow) handler in its own goroutine. Handlers
+		// can block for a long time or even hang — e.g. an external agent CLI that
+		// is unresponsive (a slow agent CLI subprocess can stall for tens of seconds).
+		// If we ran it inline on this read loop, that single call would: (1) starve
+		// relay.pong processing so the keepalive watchdog wrongly kills the link,
+		// (2) stall every other client multiplexed over the same relay link, and
+		// (3) prevent serveConn from ever returning, so the relay link can never
+		// reconnect. Agent bridges serialize internally and JSON-RPC responses are
+		// matched by id, so concurrent handling is safe.
+		go func(req RpcRequest, id interface{}) {
+			result, herr := s.handleRequest(req, client)
+			var reply []byte
+			if herr != nil {
+				reply, _ = json.Marshal(makeError(id, -32000, herr.Error()))
+			} else {
+				reply, _ = json.Marshal(makeResponse(id, result))
+			}
+			client.send(reply)
+		}(req, id)
 	}
 }

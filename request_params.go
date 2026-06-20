@@ -160,41 +160,33 @@ type claudePermissionRespondParams struct {
 	Cancelled bool   `json:"cancelled"`
 }
 
-type geminiStartParams struct {
+type cursorStartParams struct {
 	projectScope
 }
 
-type geminiNewSessionParams struct {
+type cursorNewSessionParams struct {
 	projectScope
 }
 
-type geminiSessionListParams struct {
+type cursorSessionListParams struct {
 	projectScope
 }
 
-type geminiLoadSessionParams struct {
+type cursorLoadSessionParams struct {
 	projectScope
 	SessionID string `json:"sessionId"`
 }
 
-type geminiPromptParams struct {
+type cursorPromptParams struct {
 	projectScope
-	SessionID string   `json:"sessionId"`
-	Prompt    string   `json:"prompt"`
-	Text      string   `json:"text"`
-	Images    []string `json:"images"`
+	Prompt string   `json:"prompt"`
+	Text   string   `json:"text"`
+	Images []string `json:"images"`
 }
 
-type geminiCancelParams struct {
-	SessionID string `json:"sessionId"`
+type cursorPermissionRespondParams struct {
+	RequestID string `json:"requestId"`
+	OptionID  string `json:"optionId"`
+	Cancelled bool   `json:"cancelled"`
 }
 
-type geminiSetModeParams struct {
-	SessionID string `json:"sessionId"`
-	ModeID    string `json:"modeId"`
-}
-
-type geminiSetModelParams struct {
-	SessionID string `json:"sessionId"`
-	ModelID   string `json:"modelId"`
-}

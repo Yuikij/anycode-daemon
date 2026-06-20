@@ -1,0 +1,167 @@
+
+  ╔══════════════════════════════════════╗
+  ║         AnyCode Daemon v0.8.5         ║
+  ║             (Go Edition)            ║
+  ╚══════════════════════════════════════╝
+
+  Project:  d:\code\anycode\daemon-go
+  Port:     9527
+  Token:    8c31...d72b
+
+  Relay:    https://anycodeapp.com  device=我的开发机
+
+  Connect from phone: ws://192.168.5.6:9527
+  Connect locally:    ws://localhost:9527
+
+2026/06/21 00:27:02 [startup] daemon v0.8.5; no upstream proxy configured
+2026/06/21 00:27:02 [relay] connecting to https://anycodeapp.com
+2026/06/21 00:27:02 [server] listening on :9527
+2026/06/21 00:27:03 [relay] connected; ready for clients
+2026/06/21 00:27:03 [server] client connected
+2026/06/21 00:27:36 [server] client connected
+2026/06/21 00:27:36 [server] handleRequest method=gemini.sessionList
+2026/06/21 00:27:36 [server] handleRequest method=fs.browse
+2026/06/21 00:27:36 [server] handleRequest method=codex.threadStart
+2026/06/21 00:27:36 [agent] spawned: codex [app-server --listen stdio://] (pid=13480)
+2026/06/21 00:27:36 [agent] SendContext method=initialize
+2026/06/21 00:27:36 [agent] SendContext method=initialize returned
+2026/06/21 00:27:36 [codex.autostart] success cwd=D:\code\anycode
+2026/06/21 00:27:36 [agent] SendContext method=thread/start
+2026/06/21 00:27:45 [agent] SendContext method=thread/start returned
+2026/06/21 00:27:45 [agent:stderr] 2026-06-20T16:27:45.993160Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026/06/21 00:27:51 [server] read error: read tcp [::1]:9527->[::1]:6883: wsarecv: An existing connection was forcibly closed by the remote host.
+2026/06/21 00:27:51 [server] client disconnected
+2026/06/21 00:29:10 [server] handleRequest method=client.hello
+2026/06/21 00:29:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:29:12 [server] handleRequest method=codex.threadResume
+2026/06/21 00:29:12 [server] handleRequest method=fs.browse
+2026/06/21 00:29:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:29:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:29:12 [agent] SendContext method=thread/resume
+2026/06/21 00:29:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:29:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:29:12 [server] handleRequest method=fs.tree
+2026/06/21 00:29:12 [server] handleRequest method=fs.browse
+2026/06/21 00:29:12 [agent] SendContext method=thread/resume returned
+2026/06/21 00:29:13 [server] handleRequest method=codex.threadRead
+2026/06/21 00:29:13 [agent] SendContext method=thread/read
+2026/06/21 00:29:13 [agent] SendContext method=thread/read returned
+2026/06/21 00:33:12 [server] handleRequest method=client.hello
+2026/06/21 00:33:14 [server] handleRequest method=fs.browse
+2026/06/21 00:33:14 [server] handleRequest method=fs.tree
+2026/06/21 00:33:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:33:14 [server] handleRequest method=claude.sessionList
+2026/06/21 00:33:14 [server] handleRequest method=fs.browse
+2026/06/21 00:33:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:33:14 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:33:14 [server] handleRequest method=claude.sessionList
+2026/06/21 00:37:11 [server] handleRequest method=client.hello
+2026/06/21 00:37:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:37:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:37:12 [server] handleRequest method=fs.browse
+2026/06/21 00:37:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:37:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:37:12 [server] handleRequest method=fs.browse
+2026/06/21 00:37:12 [server] handleRequest method=fs.tree
+2026/06/21 00:37:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:41:10 [server] handleRequest method=client.hello
+2026/06/21 00:41:12 [server] handleRequest method=fs.browse
+2026/06/21 00:41:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:41:12 [server] handleRequest method=fs.browse
+2026/06/21 00:41:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:41:12 [server] handleRequest method=fs.tree
+2026/06/21 00:41:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:41:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:41:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:45:10 [server] handleRequest method=client.hello
+2026/06/21 00:45:11 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:45:11 [server] handleRequest method=claude.sessionList
+2026/06/21 00:45:11 [server] handleRequest method=claude.sessionList
+2026/06/21 00:45:11 [server] handleRequest method=fs.browse
+2026/06/21 00:45:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:45:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:45:11 [server] handleRequest method=fs.browse
+2026/06/21 00:45:11 [server] handleRequest method=fs.tree
+2026/06/21 00:49:10 [server] handleRequest method=client.hello
+2026/06/21 00:49:11 [server] handleRequest method=fs.browse
+2026/06/21 00:49:11 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:49:11 [server] handleRequest method=fs.browse
+2026/06/21 00:49:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:49:11 [server] handleRequest method=fs.tree
+2026/06/21 00:49:11 [server] handleRequest method=claude.sessionList
+2026/06/21 00:49:11 [server] handleRequest method=claude.sessionList
+2026/06/21 00:49:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:51:46 [server] handleRequest method=client.hello
+2026/06/21 00:51:48 [server] handleRequest method=fs.browse
+2026/06/21 00:51:48 [server] handleRequest method=codex.threadResume
+2026/06/21 00:51:48 [server] handleRequest method=fs.browse
+2026/06/21 00:51:48 [server] handleRequest method=fs.tree
+2026/06/21 00:51:48 [server] handleRequest method=claude.sessionList
+2026/06/21 00:51:48 [agent] SendContext method=thread/resume
+2026/06/21 00:51:48 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:51:48 [server] handleRequest method=claude.sessionList
+2026/06/21 00:51:48 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:51:48 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:51:48 [agent] SendContext method=thread/resume returned
+2026/06/21 00:51:49 [server] handleRequest method=codex.start
+2026/06/21 00:51:49 [server] handleRequest method=codex.threadRead
+2026/06/21 00:51:49 [server] handleRequest method=gemini.start
+2026/06/21 00:51:49 [agent] SendContext method=thread/read
+2026/06/21 00:51:49 [server] handleRequest method=claude.start
+2026/06/21 00:51:49 [server] handleRequest method=cursor.start
+2026/06/21 00:51:49 [codex.start] command=codex cwd=C:\Users\lenovo, already_running=true
+2026/06/21 00:51:49 [codex.start] success
+2026/06/21 00:51:50 [agent] SendContext method=thread/read returned
+2026/06/21 00:51:51 [server] handleRequest method=claude.sessionList
+2026/06/21 00:51:51 [server] handleRequest method=codex.modelList
+2026/06/21 00:51:51 [agent] SendContext method=model/list
+2026/06/21 00:51:51 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:51:55 [agent] SendContext method=model/list returned
+2026/06/21 00:51:55 [server] handleRequest method=codex.configRead
+2026/06/21 00:51:55 [agent] SendContext method=config/read
+2026/06/21 00:51:55 [agent] SendContext method=config/read returned
+2026/06/21 00:51:56 [server] handleRequest method=codex.threadList
+2026/06/21 00:51:56 [agent] SendContext method=thread/list
+2026/06/21 00:51:56 [agent] SendContext method=thread/list returned
+2026/06/21 00:56:10 [server] handleRequest method=client.hello
+2026/06/21 00:56:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 00:56:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:56:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:56:12 [server] handleRequest method=codex.threadResume
+2026/06/21 00:56:12 [server] handleRequest method=fs.browse
+2026/06/21 00:56:12 [server] handleRequest method=fs.browse
+2026/06/21 00:56:12 [agent] SendContext method=thread/resume
+2026/06/21 00:56:12 [server] handleRequest method=fs.tree
+2026/06/21 00:56:12 [server] handleRequest method=claude.sessionList
+2026/06/21 00:56:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 00:56:12 [agent] SendContext method=thread/resume returned
+2026/06/21 00:56:13 [server] handleRequest method=codex.threadRead
+2026/06/21 00:56:13 [agent] SendContext method=thread/read
+2026/06/21 00:56:13 [agent] SendContext method=thread/read returned
+2026/06/21 01:00:10 [server] handleRequest method=client.hello
+2026/06/21 01:00:12 [server] handleRequest method=fs.browse
+2026/06/21 01:00:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:00:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:00:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:00:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:00:12 [server] handleRequest method=fs.tree
+2026/06/21 01:00:12 [server] handleRequest method=fs.browse
+2026/06/21 01:00:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:04:10 [server] handleRequest method=client.hello
+2026/06/21 01:04:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:04:12 [server] handleRequest method=fs.browse
+2026/06/21 01:04:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:04:12 [server] handleRequest method=fs.browse
+2026/06/21 01:04:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:04:12 [server] handleRequest method=fs.tree
+2026/06/21 01:04:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:04:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:08:10 [server] handleRequest method=client.hello
+2026/06/21 01:08:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:08:12 [server] handleRequest method=fs.browse
+2026/06/21 01:08:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:08:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:08:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:08:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:08:12 [server] handleRequest method=fs.browse
+2026/06/21 01:08:12 [server] handleRequest method=fs.tree

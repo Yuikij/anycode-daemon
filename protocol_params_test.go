@@ -59,7 +59,7 @@ func TestProtocolParamValidatorRejectsInvalid(t *testing.T) {
 		{"missing required string", "share.create", `{}`},
 		{"empty required string", "fs.readAbsolute", `{"path":""}`},
 		{"wrong type for required string", "share.create", `{"html":123}`},
-		{"missing one of two required", "gemini.setMode", `{"sessionId":"s"}`},
+		{"missing one of two required", "cron.create", `{"name":"a","agent":"claude","prompt":"hi"}`},
 		{"wrong type for number", "git.log", `{"count":"20"}`},
 		{"wrong type for string[]", "claude.prompt", `{"images":[1,2,3]}`},
 		{"missing required any", "codex.respond", `{}`},
@@ -89,7 +89,7 @@ func TestProtocolParamValidatorAcceptsValid(t *testing.T) {
 		{"passthrough ignores params", "codex.threadStart", `{"anything":true,"n":5}`},
 		{"number ok", "git.log", `{"count":20}`},
 		{"capabilities array", "client.hello", `{"capabilities":["client.hello"],"lastSeq":3}`},
-		{"gemini prompt without text is allowed at boundary", "gemini.prompt", `{"sessionId":"s"}`},
+		{"claude prompt without text is allowed at boundary", "claude.prompt", `{"prompt":"hi"}`},
 		{"unknown method not validated", "totally.unknown", `{"x":1}`},
 		{"cron create full", "cron.create", `{"name":"n","agent":"claude","prompt":"p","expression":"* * * * *","enabled":true}`},
 	}
@@ -149,14 +149,12 @@ func TestTypedRequestStructsMatchCatalog(t *testing.T) {
 		{"claude.sessionRename", reflect.TypeOf(claudeSessionRenameParams{})},
 		{"claude.prompt", reflect.TypeOf(claudePromptParams{})},
 		{"claude.permission/respond", reflect.TypeOf(claudePermissionRespondParams{})},
-		{"gemini.start", reflect.TypeOf(geminiStartParams{})},
-		{"gemini.newSession", reflect.TypeOf(geminiNewSessionParams{})},
-		{"gemini.sessionList", reflect.TypeOf(geminiSessionListParams{})},
-		{"gemini.loadSession", reflect.TypeOf(geminiLoadSessionParams{})},
-		{"gemini.prompt", reflect.TypeOf(geminiPromptParams{})},
-		{"gemini.cancel", reflect.TypeOf(geminiCancelParams{})},
-		{"gemini.setMode", reflect.TypeOf(geminiSetModeParams{})},
-		{"gemini.setModel", reflect.TypeOf(geminiSetModelParams{})},
+		{"cursor.start", reflect.TypeOf(cursorStartParams{})},
+		{"cursor.newSession", reflect.TypeOf(cursorNewSessionParams{})},
+		{"cursor.sessionList", reflect.TypeOf(cursorSessionListParams{})},
+		{"cursor.loadSession", reflect.TypeOf(cursorLoadSessionParams{})},
+		{"cursor.prompt", reflect.TypeOf(cursorPromptParams{})},
+		{"cursor.permission/respond", reflect.TypeOf(cursorPermissionRespondParams{})},
 	}
 
 	for _, b := range bindings {

@@ -51,8 +51,8 @@ func (s *Server) switchProject(newRoot string) {
 			log.Printf("[server] failed to persist project registry entry: %v", err)
 		}
 	}
-	s.gemini.SetCwd(newRoot)
 	s.claude.SetCwd(newRoot)
+	s.cursor.SetCwd(newRoot)
 	s.cron.Stop()
 	s.cron.Start(newRoot)
 	s.broadcastRecordedEvent("daemon", "project.changed", map[string]interface{}{
@@ -64,6 +64,7 @@ func (s *Server) switchProject(newRoot string) {
 }
 
 func (s *Server) handleRequest(req RpcRequest, client *wsClient) (interface{}, error) {
+	log.Printf("[server] handleRequest method=%s", req.Method)
 	if s.paramValidation && s.paramValidator != nil {
 		if err := s.paramValidator.validate(req.Method, req.Params); err != nil {
 			return nil, err
@@ -100,16 +101,6 @@ func (s *Server) initRoutes() {
 	s.routes["codex.respond"] = s.handleCodexRespond
 	s.routes["codex.revertFileChanges"] = s.handleCodexRevertFileChanges
 	s.routes["codex.applyFileChanges"] = s.handleCodexApplyFileChanges
-	s.routes["gemini.start"] = s.handleGeminiStart
-	s.routes["gemini.status"] = s.handleGeminiStatus
-	s.routes["gemini.newSession"] = s.handleGeminiNewSession
-	s.routes["gemini.loadSession"] = s.handleGeminiLoadSession
-	s.routes["gemini.prompt"] = s.handleGeminiPrompt
-	s.routes["gemini.cancel"] = s.handleGeminiCancel
-	s.routes["gemini.taskStatus"] = s.handleGeminiTaskStatus
-	s.routes["gemini.setMode"] = s.handleGeminiSetMode
-	s.routes["gemini.setModel"] = s.handleGeminiSetModel
-	s.routes["gemini.sessionList"] = s.handleGeminiSessionList
 	s.routes["claude.start"] = s.handleClaudeStart
 	s.routes["claude.status"] = s.handleClaudeStatus
 	s.routes["claude.sessionList"] = s.handleClaudeSessionList
@@ -123,6 +114,17 @@ func (s *Server) initRoutes() {
 	s.routes["claude.stop"] = s.handleClaudeStop
 	s.routes["claude.taskStatus"] = s.handleClaudeTaskStatus
 	s.routes["claude.permission/respond"] = s.handleClaudePermissionRespond
+	s.routes["cursor.start"] = s.handleCursorStart
+	s.routes["cursor.status"] = s.handleCursorStatus
+	s.routes["cursor.sessionList"] = s.handleCursorSessionList
+	s.routes["cursor.loadSession"] = s.handleCursorLoadSession
+	s.routes["cursor.newSession"] = s.handleCursorNewSession
+	s.routes["cursor.setConfig"] = s.handleCursorSetConfig
+	s.routes["cursor.prompt"] = s.handleCursorPrompt
+	s.routes["cursor.cancel"] = s.handleCursorCancel
+	s.routes["cursor.stop"] = s.handleCursorStop
+	s.routes["cursor.taskStatus"] = s.handleCursorTaskStatus
+	s.routes["cursor.permission/respond"] = s.handleCursorPermissionRespond
 	s.routes["cron.list"] = s.handleCronList
 	s.routes["cron.create"] = s.handleCronCreate
 	s.routes["cron.update"] = s.handleCronUpdate
@@ -135,10 +137,20 @@ func (s *Server) handleCodexDynamic(req RpcRequest, client *wsClient) (interface
 	if params == nil {
 		return s.codex.Send(rpcMethod, map[string]interface{}{})
 	}
-	normalizedParams, _, err := s.normalizeProjectScopedParams(params, false)
+	normalizedParams, context, err := s.normalizeProjectScopedParams(params, false)
 	if err != nil {
 		return nil, err
 	}
+
+	if !s.codex.IsRunning() {
+		runtime := s.runtime.MustRuntime("codex")
+		if err := runtime.Start(context.cwd); err != nil {
+			log.Printf("[codex.autostart] error: %v", err)
+			return nil, err
+		}
+		log.Printf("[codex.autostart] success cwd=%s", context.cwd)
+	}
+
 	if normalizedParams == nil {
 		normalizedParams = map[string]interface{}{}
 	}

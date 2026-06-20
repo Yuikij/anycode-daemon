@@ -7,7 +7,7 @@
 1. **WebSocket RPC Server**: Listens on a specified port (default: 9527) and processes JSON-RPC 2.0 style requests.
 2. **File System Management**: Browse directories, read files, and write/apply file diffs.
 3. **Git Integration**: Get git status, diffs, logs, and commit history.
-4. **Agent Integration**: Interfaces with AI coding agents (Codex, Gemini) providing a unified API for the client.
+4. **Agent Integration**: Interfaces with AI coding agents (Codex, Claude, Cursor) providing a unified API for the client.
 5. **Secure Authentication**: Requires a token-based authentication handshake immediately after connection.
 
 ## Communication Protocol
@@ -81,10 +81,10 @@ Immediately after establishing the WebSocket connection, the client **must** sen
 - **`git.diff`**: Get diffs for specific files. Parameters: `path` (string), `cwd` (optional).
 - **`git.log`**: Get commit history. Parameters: `count` (int).
 
-### 4. Agent Operations (`codex.*` / `gemini.*`)
+### 4. Agent Operations (`codex.*` / `claude.*` / `cursor.*`)
 - **`codex.start` / `codex.stop`**: Manage the Codex agent process.
 - **`codex.applyFileChanges` / `codex.revertFileChanges`**: Apply or revert unified diff patches. Parameters: `changes` (array).
-- **`gemini.prompt`**: Send a prompt to the Gemini agent. Parameters: `sessionId` (string), `prompt` (string), `images` (array).
+- **`claude.prompt` / `cursor.prompt`**: Send a prompt to the Claude / Cursor agent. Parameters: `sessionId` (string), `prompt` (string), `images` (array).
 
 ## Deployment & Execution
 The daemon is compiled as a static Go binary (`anycode-daemon`). It is typically deployed as a systemd service (`anycode-daemon.service`) on the remote target machine.
