@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.7.6"
+const Version = "0.7.7"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -53,6 +53,12 @@ func main() {
 		case "version", "--version", "-version", "-v":
 			fmt.Println(Version)
 			return
+		case "install":
+			cmdInstall(os.Args[2:])
+			return
+		case "uninstall":
+			cmdUninstall(os.Args[2:])
+			return
 		case "help", "-h", "--help":
 			printGlobalUsage()
 			return
@@ -71,6 +77,8 @@ Commands:
   login      Authenticate your account and device via Web or Email
   register   Bind this machine to your AnyCode account
   start      Run the daemon (foreground or -d for background)
+  install    Install the daemon as an auto-start user service (OS Native)
+  uninstall  Remove the auto-start user service
   status     Show daemon status (PID, Logs, Relay status)
   stop       Stop the background daemon
   restart    Restart the background daemon
@@ -206,6 +214,7 @@ func cmdStart(args []string) {
 		server.codex.Stop()
 		server.claude.Stop()
 		server.cursor.Stop()
+		server.trae.Stop()
 		if daemonized {
 			removePidFile()
 		}

@@ -165,3 +165,1834 @@
 2026/06/21 01:08:12 [server] handleRequest method=cursor.sessionList
 2026/06/21 01:08:12 [server] handleRequest method=fs.browse
 2026/06/21 01:08:12 [server] handleRequest method=fs.tree
+2026/06/21 01:12:10 [server] handleRequest method=client.hello
+2026/06/21 01:12:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:12:12 [server] handleRequest method=fs.tree
+2026/06/21 01:12:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:12:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:12:12 [server] handleRequest method=fs.browse
+2026/06/21 01:12:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:12:12 [server] handleRequest method=fs.browse
+2026/06/21 01:12:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:13:11 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/21 01:13:11 [server] client disconnected
+2026/06/21 01:13:11 [relay] disconnected; reconnecting in 1s
+2026/06/21 01:13:12 [relay] connecting to https://anycodeapp.com
+2026/06/21 01:13:14 [relay] connected; ready for clients
+2026/06/21 01:13:14 [server] client connected
+2026/06/21 01:13:15 [server] handleRequest method=client.hello
+2026/06/21 01:13:15 [server] handleRequest method=client.hello
+2026/06/21 01:13:16 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:13:16 [server] handleRequest method=fs.tree
+2026/06/21 01:13:16 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:13:16 [server] handleRequest method=fs.browse
+2026/06/21 01:13:16 [server] handleRequest method=codex.threadResume
+2026/06/21 01:13:16 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:13:16 [agent] SendContext method=thread/resume
+2026/06/21 01:13:16 [server] handleRequest method=claude.sessionList
+2026/06/21 01:13:16 [server] handleRequest method=fs.browse
+2026/06/21 01:13:16 [server] handleRequest method=claude.sessionList
+2026/06/21 01:13:16 [server] handleRequest method=git.status
+2026/06/21 01:13:16 [agent] SendContext method=thread/resume returned
+2026/06/21 01:13:17 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:13:17 [server] handleRequest method=fs.browse
+2026/06/21 01:13:17 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:13:17 [server] handleRequest method=fs.browse
+2026/06/21 01:13:17 [server] handleRequest method=claude.sessionList
+2026/06/21 01:13:17 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:13:17 [server] handleRequest method=claude.sessionList
+2026/06/21 01:13:17 [server] handleRequest method=fs.tree
+2026/06/21 01:13:19 [server] handleRequest method=codex.threadRead
+2026/06/21 01:13:19 [agent] SendContext method=thread/read
+2026/06/21 01:13:19 [agent] SendContext method=thread/read returned
+2026/06/21 01:18:10 [server] handleRequest method=client.hello
+2026/06/21 01:18:12 [server] handleRequest method=fs.browse
+2026/06/21 01:18:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:18:12 [server] handleRequest method=fs.browse
+2026/06/21 01:18:12 [server] handleRequest method=fs.tree
+2026/06/21 01:18:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:18:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:18:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:18:12 [server] handleRequest method=gemini.taskStatus
+2026/06/21 01:18:25 [server] handleRequest method=client.hello
+2026/06/21 01:18:27 [server] handleRequest method=codex.threadResume
+2026/06/21 01:18:27 [server] handleRequest method=claude.sessionList
+2026/06/21 01:18:27 [agent] SendContext method=thread/resume
+2026/06/21 01:18:27 [server] handleRequest method=fs.browse
+2026/06/21 01:18:27 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:18:27 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:18:27 [server] handleRequest method=fs.browse
+2026/06/21 01:18:27 [server] handleRequest method=claude.sessionList
+2026/06/21 01:18:27 [server] handleRequest method=fs.tree
+2026/06/21 01:18:28 [agent] SendContext method=thread/resume returned
+2026/06/21 01:18:29 [server] handleRequest method=codex.start
+2026/06/21 01:18:29 [codex.start] command=codex cwd=C:\Users\lenovo, already_running=true
+2026/06/21 01:18:29 [codex.start] success
+2026/06/21 01:18:29 [server] handleRequest method=claude.start
+2026/06/21 01:18:30 [server] handleRequest method=cursor.start
+2026/06/21 01:18:31 [server] handleRequest method=codex.threadRead
+2026/06/21 01:18:31 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:18:31 [agent] SendContext method=thread/read
+2026/06/21 01:18:31 [server] handleRequest method=codex.modelList
+2026/06/21 01:18:31 [agent] SendContext method=model/list
+2026/06/21 01:18:31 [server] handleRequest method=claude.sessionList
+2026/06/21 01:18:31 [agent] SendContext method=thread/read returned
+2026/06/21 01:18:33 [agent] SendContext method=model/list returned
+2026/06/21 01:18:33 [server] handleRequest method=codex.configRead
+2026/06/21 01:18:33 [agent] SendContext method=config/read
+2026/06/21 01:18:33 [agent] SendContext method=config/read returned
+2026/06/21 01:18:34 [server] handleRequest method=codex.threadList
+2026/06/21 01:18:34 [agent] SendContext method=thread/list
+2026/06/21 01:18:34 [agent] SendContext method=thread/list returned
+2026/06/21 01:18:38 [server] handleRequest method=codex.threadResume
+2026/06/21 01:18:38 [agent] SendContext method=thread/resume
+2026/06/21 01:18:41 [agent] SendContext method=thread/resume returned
+2026/06/21 01:18:42 [agent:stderr] 2026-06-20T17:18:42.179269Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026/06/21 01:18:49 [server] handleRequest method=codex.turnStart
+2026/06/21 01:18:49 [agent] SendContext method=turn/start
+2026/06/21 01:18:49 [agent] SendContext method=turn/start returned
+2026/06/21 01:19:02 [server] handleRequest method=client.hello
+2026/06/21 01:19:04 [server] handleRequest method=claude.sessionList
+2026/06/21 01:19:04 [server] handleRequest method=codex.threadResume
+2026/06/21 01:19:04 [server] handleRequest method=claude.sessionList
+2026/06/21 01:19:04 [agent] SendContext method=thread/resume
+2026/06/21 01:19:04 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:19:04 [server] handleRequest method=fs.browse
+2026/06/21 01:19:04 [server] handleRequest method=fs.tree
+2026/06/21 01:19:04 [server] handleRequest method=fs.browse
+2026/06/21 01:19:04 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:19:04 [agent] SendContext method=thread/resume returned
+2026/06/21 01:19:05 [server] handleRequest method=cursor.start
+2026/06/21 01:19:05 [server] handleRequest method=codex.start
+2026/06/21 01:19:05 [server] handleRequest method=claude.start
+2026/06/21 01:19:05 [codex.start] command=codex cwd=C:\Users\lenovo, already_running=true
+2026/06/21 01:19:05 [codex.start] success
+2026/06/21 01:19:08 [server] handleRequest method=claude.sessionList
+2026/06/21 01:19:08 [server] handleRequest method=codex.modelList
+2026/06/21 01:19:08 [agent] SendContext method=model/list
+2026/06/21 01:19:08 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:19:08 [agent] SendContext method=model/list returned
+2026/06/21 01:19:08 [server] handleRequest method=codex.configRead
+2026/06/21 01:19:08 [agent] SendContext method=config/read
+2026/06/21 01:19:08 [agent] SendContext method=config/read returned
+2026/06/21 01:19:09 [server] handleRequest method=codex.threadList
+2026/06/21 01:19:09 [agent] SendContext method=thread/list
+2026/06/21 01:19:09 [agent] SendContext method=thread/list returned
+2026/06/21 01:19:14 [server] handleRequest method=claude.start
+2026/06/21 01:19:15 [server] handleRequest method=claude.sessionList
+2026/06/21 01:20:02 [server] handleRequest method=codex.threadResume
+2026/06/21 01:20:02 [agent] SendContext method=thread/resume
+2026/06/21 01:20:02 [agent] SendContext method=thread/resume returned
+2026/06/21 01:20:09 [server] handleRequest method=codex.configWrite
+2026/06/21 01:20:09 [agent] SendContext method=config/value/write
+2026/06/21 01:20:09 [agent] SendContext method=config/value/write returned
+2026/06/21 01:20:11 [server] handleRequest method=codex.configWrite
+2026/06/21 01:20:11 [agent] SendContext method=config/value/write
+2026/06/21 01:20:11 [agent] SendContext method=config/value/write returned
+2026/06/21 01:20:12 [server] handleRequest method=cron.list
+2026/06/21 01:20:48 [proxy] origin-mode GET / -> http://baidu.com/
+2026/06/21 01:20:48 [proxy] upstream GET http://baidu.com/ -> 301 (text/html; charset=utf-8)
+2026/06/21 01:20:56 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:20:56 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:20:57 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:20:57 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:20:58 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:20:58 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:20:59 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:20:59 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:20:59 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:20:59 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:21:01 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:21:01 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:21:01 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:21:01 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:21:02 [proxy] origin-mode GET / -> http://www.baidu.com/
+2026/06/21 01:21:02 [proxy] upstream GET http://www.baidu.com/ -> 302 (text/html)
+2026/06/21 01:21:11 [server] handleRequest method=fs.browse
+2026/06/21 01:21:11 [server] handleRequest method=cursor.start
+2026/06/21 01:21:11 [server] handleRequest method=codex.start
+2026/06/21 01:21:11 [server] handleRequest method=claude.start
+2026/06/21 01:21:11 [codex.start] command=codex cwd=C:\Users, already_running=true
+2026/06/21 01:21:11 [codex.start] success
+2026/06/21 01:21:12 [server] handleRequest method=fs.browse
+2026/06/21 01:21:14 [server] handleRequest method=codex.modelList
+2026/06/21 01:21:14 [server] handleRequest method=cursor.start
+2026/06/21 01:21:14 [agent] SendContext method=model/list
+2026/06/21 01:21:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:21:14 [server] handleRequest method=codex.start
+2026/06/21 01:21:14 [server] handleRequest method=claude.start
+2026/06/21 01:21:14 [server] handleRequest method=claude.sessionList
+2026/06/21 01:21:14 [codex.start] command=codex cwd=C:\, already_running=true
+2026/06/21 01:21:14 [codex.start] success
+2026/06/21 01:21:14 [server] handleRequest method=codex.modelList
+2026/06/21 01:21:14 [agent] SendContext method=model/list
+2026/06/21 01:21:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:21:16 [server] handleRequest method=claude.sessionList
+2026/06/21 01:21:17 [agent] SendContext method=model/list returned
+2026/06/21 01:21:18 [agent] SendContext method=model/list returned
+2026/06/21 01:21:18 [server] handleRequest method=codex.configRead
+2026/06/21 01:21:18 [agent] SendContext method=config/read
+2026/06/21 01:21:18 [agent] SendContext method=config/read returned
+2026/06/21 01:21:18 [server] handleRequest method=codex.configRead
+2026/06/21 01:21:18 [agent] SendContext method=config/read
+2026/06/21 01:21:18 [agent] SendContext method=config/read returned
+2026/06/21 01:21:19 [server] handleRequest method=codex.threadList
+2026/06/21 01:21:19 [agent] SendContext method=thread/list
+2026/06/21 01:21:19 [agent] SendContext method=thread/list returned
+2026/06/21 01:21:19 [server] handleRequest method=codex.threadList
+2026/06/21 01:21:19 [agent] SendContext method=thread/list
+2026/06/21 01:21:19 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:09 [server] handleRequest method=client.hello
+2026/06/21 01:25:11 [server] handleRequest method=codex.threadResume
+2026/06/21 01:25:11 [server] handleRequest method=codex.threadList
+2026/06/21 01:25:11 [agent] SendContext method=thread/resume
+2026/06/21 01:25:11 [server] handleRequest method=codex.taskStatus
+2026/06/21 01:25:11 [agent] SendContext method=thread/list
+2026/06/21 01:25:11 [server] handleRequest method=claude.taskStatus
+2026/06/21 01:25:11 [server] handleRequest method=cursor.taskStatus
+2026/06/21 01:25:11 [server] handleRequest method=fs.browse
+2026/06/21 01:25:11 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:12 [agent] SendContext method=thread/resume returned
+2026/06/21 01:25:16 [server] handleRequest method=fs.browse
+2026/06/21 01:25:17 [server] handleRequest method=codex.threadList
+2026/06/21 01:25:17 [agent] SendContext method=thread/list
+2026/06/21 01:25:17 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:20 [server] handleRequest method=codex.threadList
+2026/06/21 01:25:20 [agent] SendContext method=thread/list
+2026/06/21 01:25:20 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:23 [server] handleRequest method=daemon.configRead
+2026/06/21 01:25:28 [server] handleRequest method=cron.list
+2026/06/21 01:25:30 [server] handleRequest method=codex.threadList
+2026/06/21 01:25:30 [agent] SendContext method=thread/list
+2026/06/21 01:25:30 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:32 [server] handleRequest method=codex.threadResume
+2026/06/21 01:25:32 [agent] SendContext method=thread/resume
+2026/06/21 01:25:32 [agent] SendContext method=thread/resume returned
+2026/06/21 01:25:34 [server] handleRequest method=codex.threadList
+2026/06/21 01:25:34 [agent] SendContext method=thread/list
+2026/06/21 01:25:34 [agent] SendContext method=thread/list returned
+2026/06/21 01:25:39 [server] handleRequest method=codex.threadResume
+2026/06/21 01:25:39 [agent] SendContext method=thread/resume
+2026/06/21 01:25:39 [agent] SendContext method=thread/resume returned
+2026/06/21 01:50:30 [server] handleRequest method=client.hello
+2026/06/21 01:50:32 [server] handleRequest method=codex.threadResume
+2026/06/21 01:50:32 [server] handleRequest method=fs.tree
+2026/06/21 01:50:32 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:50:32 [server] handleRequest method=claude.sessionList
+2026/06/21 01:50:32 [agent] SendContext method=thread/resume
+2026/06/21 01:50:32 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:50:32 [server] handleRequest method=fs.browse
+2026/06/21 01:50:32 [server] handleRequest method=claude.sessionList
+2026/06/21 01:50:32 [server] handleRequest method=fs.browse
+2026/06/21 01:50:32 [agent] SendContext method=thread/resume returned
+2026/06/21 01:50:32 [server] handleRequest method=codex.start
+2026/06/21 01:50:32 [server] handleRequest method=claude.start
+2026/06/21 01:50:32 [server] handleRequest method=cursor.start
+2026/06/21 01:50:32 [codex.start] command=codex cwd=C:\Users\lenovo, already_running=true
+2026/06/21 01:50:32 [codex.start] success
+2026/06/21 01:50:33 [server] handleRequest method=codex.modelList
+2026/06/21 01:50:33 [agent] SendContext method=model/list
+2026/06/21 01:50:33 [server] handleRequest method=claude.sessionList
+2026/06/21 01:50:33 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:50:35 [agent] SendContext method=model/list returned
+2026/06/21 01:50:35 [server] handleRequest method=cursor.start
+2026/06/21 01:50:36 [server] handleRequest method=codex.configRead
+2026/06/21 01:50:36 [agent] SendContext method=config/read
+2026/06/21 01:50:36 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:50:36 [agent] SendContext method=config/read returned
+2026/06/21 01:50:36 [server] handleRequest method=codex.threadList
+2026/06/21 01:50:36 [agent] SendContext method=thread/list
+2026/06/21 01:50:36 [agent] SendContext method=thread/list returned
+2026/06/21 01:50:39 [server] handleRequest method=claude.start
+2026/06/21 01:50:39 [server] handleRequest method=claude.sessionList
+2026/06/21 01:50:44 [server] handleRequest method=claude.start
+2026/06/21 01:50:45 [server] handleRequest method=claude.sessionList
+2026/06/21 01:55:10 [server] handleRequest method=client.hello
+2026/06/21 01:55:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:55:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:55:12 [server] handleRequest method=fs.tree
+2026/06/21 01:55:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:55:12 [server] handleRequest method=fs.browse
+2026/06/21 01:55:12 [server] handleRequest method=fs.browse
+2026/06/21 01:55:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:59:10 [server] handleRequest method=client.hello
+2026/06/21 01:59:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:59:12 [server] handleRequest method=fs.browse
+2026/06/21 01:59:12 [server] handleRequest method=claude.sessionList
+2026/06/21 01:59:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:59:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 01:59:12 [server] handleRequest method=fs.tree
+2026/06/21 01:59:12 [server] handleRequest method=fs.browse
+2026/06/21 02:04:10 [server] handleRequest method=client.hello
+2026/06/21 02:04:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:04:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:04:12 [server] handleRequest method=fs.tree
+2026/06/21 02:04:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:04:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:04:12 [server] handleRequest method=fs.browse
+2026/06/21 02:04:12 [server] handleRequest method=fs.browse
+2026/06/21 02:04:42 [server] handleRequest method=claude.start
+2026/06/21 02:04:43 [server] handleRequest method=claude.sessionList
+2026/06/21 02:04:45 [server] handleRequest method=claude.loadSession
+2026/06/21 02:04:45 [claude] claude-code-acp not found — installing @zed-industries/claude-code-acp via npm (one-time, this may take a minute)...
+2026/06/21 02:05:29 [claude] @zed-industries/claude-code-acp installed
+2026/06/21 02:05:34 [claude] spawning: claude-code-acp [] (cwd=C:\Users\lenovo)
+2026/06/21 02:05:34 [agent] spawned: claude-code-acp [] (pid=13864)
+2026/06/21 02:05:34 [agent] SendContext method=initialize
+2026/06/21 02:05:34 [agent] SendContext method=initialize returned
+2026/06/21 02:05:34 [claude] ACP initialized
+2026/06/21 02:05:34 [agent] SendContext method=session/load
+2026/06/21 02:05:36 [agent] SendContext method=session/load returned
+2026/06/21 02:08:10 [server] handleRequest method=client.hello
+2026/06/21 02:08:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:08:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:08:11 [server] handleRequest method=fs.browse
+2026/06/21 02:08:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:08:11 [server] handleRequest method=fs.browse
+2026/06/21 02:08:11 [server] handleRequest method=fs.tree
+2026/06/21 02:08:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:09:03 [server] handleRequest method=claude.start
+2026/06/21 02:09:04 [server] handleRequest method=claude.sessionList
+2026/06/21 02:13:10 [server] handleRequest method=client.hello
+2026/06/21 02:13:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:13:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:13:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:13:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:13:11 [server] handleRequest method=fs.browse
+2026/06/21 02:13:11 [server] handleRequest method=fs.tree
+2026/06/21 02:13:11 [server] handleRequest method=fs.browse
+2026/06/21 02:17:10 [server] handleRequest method=client.hello
+2026/06/21 02:17:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:17:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:17:12 [server] handleRequest method=fs.browse
+2026/06/21 02:17:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:17:12 [server] handleRequest method=fs.browse
+2026/06/21 02:17:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:17:12 [server] handleRequest method=fs.tree
+2026/06/21 02:21:10 [server] handleRequest method=client.hello
+2026/06/21 02:21:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:21:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:21:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:21:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:21:12 [server] handleRequest method=fs.tree
+2026/06/21 02:21:12 [server] handleRequest method=fs.browse
+2026/06/21 02:21:12 [server] handleRequest method=fs.browse
+2026/06/21 02:25:10 [server] handleRequest method=client.hello
+2026/06/21 02:25:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:25:12 [server] handleRequest method=fs.tree
+2026/06/21 02:25:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:25:12 [server] handleRequest method=fs.browse
+2026/06/21 02:25:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:25:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:25:12 [server] handleRequest method=fs.browse
+2026/06/21 02:30:10 [server] handleRequest method=client.hello
+2026/06/21 02:30:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:30:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:30:12 [server] handleRequest method=fs.tree
+2026/06/21 02:30:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:30:12 [server] handleRequest method=fs.browse
+2026/06/21 02:30:12 [server] handleRequest method=fs.browse
+2026/06/21 02:30:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:34:10 [server] handleRequest method=client.hello
+2026/06/21 02:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:34:12 [server] handleRequest method=fs.browse
+2026/06/21 02:34:12 [server] handleRequest method=fs.browse
+2026/06/21 02:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:34:12 [server] handleRequest method=fs.tree
+2026/06/21 02:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:38:10 [server] handleRequest method=client.hello
+2026/06/21 02:38:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:38:12 [server] handleRequest method=fs.tree
+2026/06/21 02:38:12 [server] handleRequest method=fs.browse
+2026/06/21 02:38:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:38:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:38:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:38:12 [server] handleRequest method=fs.browse
+2026/06/21 02:43:10 [server] handleRequest method=client.hello
+2026/06/21 02:43:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:43:12 [server] handleRequest method=fs.browse
+2026/06/21 02:43:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:43:12 [server] handleRequest method=fs.browse
+2026/06/21 02:43:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:43:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:43:12 [server] handleRequest method=fs.tree
+2026/06/21 02:47:07 [server] handleRequest method=codex.threadList
+2026/06/21 02:47:07 [agent] SendContext method=thread/list
+2026/06/21 02:47:07 [agent] SendContext method=thread/list returned
+2026/06/21 02:47:08 [server] handleRequest method=claude.status
+2026/06/21 02:47:10 [server] handleRequest method=client.hello
+2026/06/21 02:47:10 [server] handleRequest method=claude.start
+2026/06/21 02:47:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:47:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:47:11 [server] handleRequest method=fs.tree
+2026/06/21 02:47:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:47:11 [server] handleRequest method=claude.sessionList
+2026/06/21 02:47:11 [server] handleRequest method=fs.browse
+2026/06/21 02:47:11 [server] handleRequest method=fs.browse
+2026/06/21 02:47:13 [server] handleRequest method=claude.start
+2026/06/21 02:47:14 [server] handleRequest method=claude.start
+2026/06/21 02:47:15 [server] handleRequest method=claude.start
+2026/06/21 02:47:19 [server] handleRequest method=fs.browse
+2026/06/21 02:47:19 [server] handleRequest method=claude.status
+2026/06/21 02:47:20 [server] handleRequest method=claude.start
+2026/06/21 02:47:24 [server] handleRequest method=cursor.status
+2026/06/21 02:47:26 [server] handleRequest method=codex.threadList
+2026/06/21 02:47:26 [agent] SendContext method=thread/list
+2026/06/21 02:47:26 [agent] SendContext method=thread/list returned
+2026/06/21 02:47:31 [server] handleRequest method=codex.threadResume
+2026/06/21 02:47:31 [agent] SendContext method=thread/resume
+2026/06/21 02:47:31 [agent] SendContext method=thread/resume returned
+2026/06/21 02:47:31 [server] handleRequest method=codex.threadRead
+2026/06/21 02:47:31 [agent] SendContext method=thread/read
+2026/06/21 02:47:31 [agent] SendContext method=thread/read returned
+2026/06/21 02:47:35 [server] handleRequest method=codex.threadList
+2026/06/21 02:47:35 [agent] SendContext method=thread/list
+2026/06/21 02:47:35 [agent] SendContext method=thread/list returned
+2026/06/21 02:47:37 [server] handleRequest method=cron.list
+2026/06/21 02:47:41 [server] handleRequest method=daemon.configRead
+2026/06/21 02:47:56 [server] handleRequest method=client.hello
+2026/06/21 02:47:58 [server] handleRequest method=codex.threadResume
+2026/06/21 02:47:58 [agent] SendContext method=thread/resume
+2026/06/21 02:47:58 [agent] SendContext method=thread/resume returned
+2026/06/21 02:47:58 [server] handleRequest method=claude.loadSession
+2026/06/21 02:47:58 [server] handleRequest method=daemon.configRead
+2026/06/21 02:47:58 [server] handleRequest method=cursor.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=codex.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=claude.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=cursor.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=claude.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=codex.taskStatus
+2026/06/21 02:47:58 [server] handleRequest method=fs.browse
+2026/06/21 02:48:00 [server] handleRequest method=codex.threadList
+2026/06/21 02:48:00 [agent] SendContext method=thread/list
+2026/06/21 02:48:00 [agent] SendContext method=thread/list returned
+2026/06/21 02:48:02 [server] handleRequest method=claude.status
+2026/06/21 02:48:02 [server] handleRequest method=claude.sessionList
+2026/06/21 02:48:21 [server] handleRequest method=claude.setConfig
+2026/06/21 02:48:24 [server] handleRequest method=claude.setConfig
+2026/06/21 02:48:27 [server] handleRequest method=claude.setConfig
+2026/06/21 02:48:39 [server] handleRequest method=claude.sessionList
+2026/06/21 02:48:41 [server] handleRequest method=fs.browse
+2026/06/21 02:48:41 [server] handleRequest method=claude.sessionList
+2026/06/21 02:48:44 [server] handleRequest method=daemon.configRead
+2026/06/21 02:51:10 [server] handleRequest method=client.hello
+2026/06/21 02:51:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:51:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:51:12 [server] handleRequest method=fs.browse
+2026/06/21 02:51:12 [server] handleRequest method=fs.tree
+2026/06/21 02:51:12 [server] handleRequest method=fs.browse
+2026/06/21 02:51:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:51:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:55:10 [server] handleRequest method=client.hello
+2026/06/21 02:55:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:55:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:55:12 [server] handleRequest method=fs.tree
+2026/06/21 02:55:12 [server] handleRequest method=fs.browse
+2026/06/21 02:55:12 [server] handleRequest method=fs.browse
+2026/06/21 02:55:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:55:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:59:10 [server] handleRequest method=client.hello
+2026/06/21 02:59:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:59:12 [server] handleRequest method=claude.sessionList
+2026/06/21 02:59:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:59:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 02:59:12 [server] handleRequest method=fs.tree
+2026/06/21 02:59:12 [server] handleRequest method=fs.browse
+2026/06/21 02:59:12 [server] handleRequest method=fs.browse
+2026/06/21 03:03:10 [server] handleRequest method=client.hello
+2026/06/21 03:03:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:03:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:03:12 [server] handleRequest method=fs.browse
+2026/06/21 03:03:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:03:12 [server] handleRequest method=fs.browse
+2026/06/21 03:03:12 [server] handleRequest method=fs.tree
+2026/06/21 03:03:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:04:06 [server] handleRequest method=claude.sessionList
+2026/06/21 03:04:32 [server] handleRequest method=claude.prompt
+2026/06/21 03:04:32 [agent] SendContext method=session/prompt
+2026/06/21 03:04:51 [claude] ACP request: session/request_permission
+2026/06/21 03:04:59 [claude] ACP request: session/request_permission
+2026/06/21 03:05:03 [claude] ACP request: session/request_permission
+2026/06/21 03:05:14 [agent] SendContext method=session/prompt returned
+2026/06/21 03:05:14 [server] handleRequest method=claude.sessionList
+2026/06/21 03:05:14 [server] handleRequest method=claude.sessionList
+2026/06/21 03:08:10 [server] handleRequest method=client.hello
+2026/06/21 03:08:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:08:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:08:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:08:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:08:12 [server] handleRequest method=fs.browse
+2026/06/21 03:08:12 [server] handleRequest method=fs.browse
+2026/06/21 03:08:12 [server] handleRequest method=fs.tree
+2026/06/21 03:08:54 [server] handleRequest method=claude.prompt
+2026/06/21 03:08:54 [agent] SendContext method=session/prompt
+2026/06/21 03:09:10 [claude] ACP request: session/request_permission
+2026/06/21 03:09:14 [claude] ACP request: session/request_permission
+2026/06/21 03:09:22 [claude] ACP request: session/request_permission
+2026/06/21 03:09:39 [agent] SendContext method=session/prompt returned
+2026/06/21 03:09:40 [server] handleRequest method=claude.sessionList
+2026/06/21 03:09:40 [server] handleRequest method=claude.sessionList
+2026/06/21 03:11:37 [server] handleRequest method=claude.prompt
+2026/06/21 03:11:37 [agent] SendContext method=session/prompt
+2026/06/21 03:11:49 [agent] SendContext method=session/prompt returned
+2026/06/21 03:11:50 [server] handleRequest method=claude.sessionList
+2026/06/21 03:11:50 [server] handleRequest method=claude.sessionList
+2026/06/21 03:12:10 [server] handleRequest method=client.hello
+2026/06/21 03:12:11 [server] handleRequest method=claude.sessionList
+2026/06/21 03:12:11 [server] handleRequest method=fs.browse
+2026/06/21 03:12:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:12:11 [server] handleRequest method=fs.browse
+2026/06/21 03:12:11 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:12:11 [server] handleRequest method=fs.tree
+2026/06/21 03:12:11 [server] handleRequest method=claude.sessionList
+2026/06/21 03:14:50 [server] handleRequest method=claude.prompt
+2026/06/21 03:14:50 [agent] SendContext method=session/prompt
+2026/06/21 03:15:06 [agent] SendContext method=session/prompt returned
+2026/06/21 03:15:07 [server] handleRequest method=claude.sessionList
+2026/06/21 03:15:07 [server] handleRequest method=claude.sessionList
+2026/06/21 03:17:10 [server] handleRequest method=client.hello
+2026/06/21 03:17:12 [server] handleRequest method=fs.browse
+2026/06/21 03:17:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:17:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:17:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:17:12 [server] handleRequest method=fs.tree
+2026/06/21 03:17:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:17:12 [server] handleRequest method=fs.browse
+2026/06/21 03:18:00 [server] handleRequest method=claude.prompt
+2026/06/21 03:18:00 [agent] SendContext method=session/prompt
+2026/06/21 03:18:20 [agent] SendContext method=session/prompt returned
+2026/06/21 03:18:21 [server] handleRequest method=claude.sessionList
+2026/06/21 03:18:21 [server] handleRequest method=claude.sessionList
+2026/06/21 03:19:01 [server] handleRequest method=claude.prompt
+2026/06/21 03:19:01 [agent] SendContext method=session/prompt
+2026/06/21 03:19:19 [agent] SendContext method=session/prompt returned
+2026/06/21 03:19:19 [server] handleRequest method=claude.sessionList
+2026/06/21 03:19:19 [server] handleRequest method=claude.sessionList
+2026/06/21 03:22:10 [server] handleRequest method=client.hello
+2026/06/21 03:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:22:13 [server] handleRequest method=fs.browse
+2026/06/21 03:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:22:13 [server] handleRequest method=fs.browse
+2026/06/21 03:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:22:13 [server] handleRequest method=fs.tree
+2026/06/21 03:26:10 [server] handleRequest method=client.hello
+2026/06/21 03:26:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:26:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:26:12 [server] handleRequest method=fs.browse
+2026/06/21 03:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:26:12 [server] handleRequest method=fs.tree
+2026/06/21 03:26:12 [server] handleRequest method=fs.browse
+2026/06/21 03:30:10 [server] handleRequest method=client.hello
+2026/06/21 03:30:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:30:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:30:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:30:12 [server] handleRequest method=fs.browse
+2026/06/21 03:30:12 [server] handleRequest method=fs.browse
+2026/06/21 03:30:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:30:12 [server] handleRequest method=fs.tree
+2026/06/21 03:34:10 [server] handleRequest method=client.hello
+2026/06/21 03:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:34:12 [server] handleRequest method=fs.browse
+2026/06/21 03:34:12 [server] handleRequest method=fs.browse
+2026/06/21 03:34:12 [server] handleRequest method=fs.tree
+2026/06/21 03:38:10 [server] handleRequest method=client.hello
+2026/06/21 03:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:38:13 [server] handleRequest method=fs.browse
+2026/06/21 03:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:38:13 [server] handleRequest method=fs.browse
+2026/06/21 03:38:13 [server] handleRequest method=fs.tree
+2026/06/21 03:42:10 [server] handleRequest method=client.hello
+2026/06/21 03:42:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:42:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:42:13 [server] handleRequest method=fs.browse
+2026/06/21 03:42:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:42:13 [server] handleRequest method=fs.tree
+2026/06/21 03:42:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:42:13 [server] handleRequest method=fs.browse
+2026/06/21 03:46:10 [server] handleRequest method=client.hello
+2026/06/21 03:46:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:46:12 [server] handleRequest method=fs.browse
+2026/06/21 03:46:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:46:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:46:12 [server] handleRequest method=fs.browse
+2026/06/21 03:46:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:46:12 [server] handleRequest method=fs.tree
+2026/06/21 03:50:10 [server] handleRequest method=client.hello
+2026/06/21 03:50:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:50:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:50:12 [server] handleRequest method=fs.browse
+2026/06/21 03:50:12 [server] handleRequest method=fs.browse
+2026/06/21 03:50:12 [server] handleRequest method=fs.tree
+2026/06/21 03:50:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:50:12 [server] handleRequest method=claude.sessionList
+2026/06/21 03:54:10 [server] handleRequest method=client.hello
+2026/06/21 03:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:54:13 [server] handleRequest method=fs.tree
+2026/06/21 03:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:54:13 [server] handleRequest method=fs.browse
+2026/06/21 03:54:13 [server] handleRequest method=fs.browse
+2026/06/21 03:58:10 [server] handleRequest method=client.hello
+2026/06/21 03:58:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:58:13 [server] handleRequest method=fs.tree
+2026/06/21 03:58:13 [server] handleRequest method=fs.browse
+2026/06/21 03:58:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 03:58:13 [server] handleRequest method=fs.browse
+2026/06/21 03:58:13 [server] handleRequest method=claude.sessionList
+2026/06/21 03:58:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:02:10 [server] handleRequest method=client.hello
+2026/06/21 04:02:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:02:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:02:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:02:13 [server] handleRequest method=fs.browse
+2026/06/21 04:02:13 [server] handleRequest method=fs.browse
+2026/06/21 04:02:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:02:13 [server] handleRequest method=fs.tree
+2026/06/21 04:06:10 [server] handleRequest method=client.hello
+2026/06/21 04:06:12 [server] handleRequest method=fs.browse
+2026/06/21 04:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:06:12 [server] handleRequest method=fs.browse
+2026/06/21 04:06:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:06:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:06:12 [server] handleRequest method=fs.tree
+2026/06/21 04:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:10:10 [server] handleRequest method=client.hello
+2026/06/21 04:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:10:13 [server] handleRequest method=fs.browse
+2026/06/21 04:10:13 [server] handleRequest method=fs.browse
+2026/06/21 04:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:10:13 [server] handleRequest method=fs.tree
+2026/06/21 04:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:14:10 [server] handleRequest method=client.hello
+2026/06/21 04:14:13 [server] handleRequest method=fs.browse
+2026/06/21 04:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:14:13 [server] handleRequest method=fs.tree
+2026/06/21 04:14:13 [server] handleRequest method=fs.browse
+2026/06/21 04:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:18:10 [server] handleRequest method=client.hello
+2026/06/21 04:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:18:13 [server] handleRequest method=fs.browse
+2026/06/21 04:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:18:13 [server] handleRequest method=fs.browse
+2026/06/21 04:18:13 [server] handleRequest method=fs.tree
+2026/06/21 04:22:10 [server] handleRequest method=client.hello
+2026/06/21 04:22:12 [server] handleRequest method=fs.browse
+2026/06/21 04:22:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:22:12 [server] handleRequest method=fs.browse
+2026/06/21 04:22:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:22:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:22:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:22:12 [server] handleRequest method=fs.tree
+2026/06/21 04:26:10 [server] handleRequest method=client.hello
+2026/06/21 04:26:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:26:12 [server] handleRequest method=fs.browse
+2026/06/21 04:26:12 [server] handleRequest method=fs.browse
+2026/06/21 04:26:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:26:12 [server] handleRequest method=fs.tree
+2026/06/21 04:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:30:10 [server] handleRequest method=client.hello
+2026/06/21 04:30:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:30:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:30:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:30:13 [server] handleRequest method=fs.browse
+2026/06/21 04:30:13 [server] handleRequest method=fs.browse
+2026/06/21 04:30:13 [server] handleRequest method=fs.tree
+2026/06/21 04:30:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:34:10 [server] handleRequest method=client.hello
+2026/06/21 04:34:13 [server] handleRequest method=fs.browse
+2026/06/21 04:34:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:34:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:34:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:34:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:34:13 [server] handleRequest method=fs.browse
+2026/06/21 04:34:13 [server] handleRequest method=fs.tree
+2026/06/21 04:38:10 [server] handleRequest method=client.hello
+2026/06/21 04:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:38:13 [server] handleRequest method=fs.tree
+2026/06/21 04:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:38:13 [server] handleRequest method=fs.browse
+2026/06/21 04:38:13 [server] handleRequest method=fs.browse
+2026/06/21 04:42:10 [server] handleRequest method=client.hello
+2026/06/21 04:42:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:42:13 [server] handleRequest method=fs.browse
+2026/06/21 04:42:13 [server] handleRequest method=fs.tree
+2026/06/21 04:42:13 [server] handleRequest method=fs.browse
+2026/06/21 04:42:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:42:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:42:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:46:10 [server] handleRequest method=client.hello
+2026/06/21 04:46:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:46:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:46:13 [server] handleRequest method=fs.tree
+2026/06/21 04:46:13 [server] handleRequest method=fs.browse
+2026/06/21 04:46:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:46:13 [server] handleRequest method=fs.browse
+2026/06/21 04:46:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:46:16 [server] handleRequest method=client.hello
+2026/06/21 04:46:19 [server] handleRequest method=gemini.taskStatus
+2026/06/21 04:46:19 [server] handleRequest method=claude.sessionList
+2026/06/21 04:46:19 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:46:19 [server] handleRequest method=fs.browse
+2026/06/21 04:46:19 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:46:19 [server] handleRequest method=claude.sessionList
+2026/06/21 04:46:19 [server] handleRequest method=git.status
+2026/06/21 04:46:19 [server] handleRequest method=fs.tree
+2026/06/21 04:46:19 [server] handleRequest method=fs.browse
+2026/06/21 04:50:10 [server] handleRequest method=client.hello
+2026/06/21 04:50:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:50:13 [server] handleRequest method=fs.tree
+2026/06/21 04:50:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:50:13 [server] handleRequest method=fs.browse
+2026/06/21 04:50:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:50:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:50:13 [server] handleRequest method=fs.browse
+2026/06/21 04:54:10 [server] handleRequest method=client.hello
+2026/06/21 04:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:54:13 [server] handleRequest method=fs.browse
+2026/06/21 04:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:54:13 [server] handleRequest method=fs.browse
+2026/06/21 04:54:13 [server] handleRequest method=fs.tree
+2026/06/21 04:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 04:58:10 [server] handleRequest method=client.hello
+2026/06/21 04:58:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:58:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:58:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 04:58:12 [server] handleRequest method=claude.sessionList
+2026/06/21 04:58:12 [server] handleRequest method=fs.browse
+2026/06/21 04:58:12 [server] handleRequest method=fs.browse
+2026/06/21 04:58:12 [server] handleRequest method=fs.tree
+2026/06/21 05:02:10 [server] handleRequest method=client.hello
+2026/06/21 05:02:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:02:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:02:12 [server] handleRequest method=fs.tree
+2026/06/21 05:02:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:02:12 [server] handleRequest method=fs.browse
+2026/06/21 05:02:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:02:12 [server] handleRequest method=fs.browse
+2026/06/21 05:06:10 [server] handleRequest method=client.hello
+2026/06/21 05:06:12 [server] handleRequest method=fs.browse
+2026/06/21 05:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:06:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:06:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:06:12 [server] handleRequest method=fs.tree
+2026/06/21 05:06:12 [server] handleRequest method=fs.browse
+2026/06/21 05:10:10 [server] handleRequest method=client.hello
+2026/06/21 05:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:10:13 [server] handleRequest method=fs.browse
+2026/06/21 05:10:13 [server] handleRequest method=fs.tree
+2026/06/21 05:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:10:13 [server] handleRequest method=fs.browse
+2026/06/21 05:14:10 [server] handleRequest method=client.hello
+2026/06/21 05:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:14:13 [server] handleRequest method=fs.tree
+2026/06/21 05:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:14:13 [server] handleRequest method=fs.browse
+2026/06/21 05:14:13 [server] handleRequest method=fs.browse
+2026/06/21 05:18:10 [server] handleRequest method=client.hello
+2026/06/21 05:18:13 [server] handleRequest method=fs.browse
+2026/06/21 05:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:18:13 [server] handleRequest method=fs.browse
+2026/06/21 05:18:13 [server] handleRequest method=fs.tree
+2026/06/21 05:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:22:10 [server] handleRequest method=client.hello
+2026/06/21 05:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:22:13 [server] handleRequest method=fs.browse
+2026/06/21 05:22:13 [server] handleRequest method=fs.browse
+2026/06/21 05:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:22:13 [server] handleRequest method=fs.tree
+2026/06/21 05:26:10 [server] handleRequest method=client.hello
+2026/06/21 05:26:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:26:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:26:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:26:13 [server] handleRequest method=fs.tree
+2026/06/21 05:26:13 [server] handleRequest method=fs.browse
+2026/06/21 05:26:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:26:13 [server] handleRequest method=fs.browse
+2026/06/21 05:30:10 [server] handleRequest method=client.hello
+2026/06/21 05:30:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:30:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:30:13 [server] handleRequest method=fs.browse
+2026/06/21 05:30:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:30:13 [server] handleRequest method=fs.browse
+2026/06/21 05:30:13 [server] handleRequest method=fs.tree
+2026/06/21 05:30:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:34:10 [server] handleRequest method=client.hello
+2026/06/21 05:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:34:12 [server] handleRequest method=fs.browse
+2026/06/21 05:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:34:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:34:12 [server] handleRequest method=fs.tree
+2026/06/21 05:34:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:34:12 [server] handleRequest method=fs.browse
+2026/06/21 05:38:10 [server] handleRequest method=client.hello
+2026/06/21 05:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:38:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:38:13 [server] handleRequest method=fs.browse
+2026/06/21 05:38:13 [server] handleRequest method=fs.browse
+2026/06/21 05:38:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:38:13 [server] handleRequest method=fs.tree
+2026/06/21 05:42:10 [server] handleRequest method=client.hello
+2026/06/21 05:42:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:42:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:42:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:42:12 [server] handleRequest method=fs.browse
+2026/06/21 05:42:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:42:12 [server] handleRequest method=fs.browse
+2026/06/21 05:42:12 [server] handleRequest method=fs.tree
+2026/06/21 05:46:09 [server] handleRequest method=client.hello
+2026/06/21 05:46:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:46:12 [server] handleRequest method=fs.browse
+2026/06/21 05:46:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:46:12 [server] handleRequest method=fs.browse
+2026/06/21 05:46:12 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:46:12 [server] handleRequest method=claude.sessionList
+2026/06/21 05:46:12 [server] handleRequest method=fs.tree
+2026/06/21 05:50:10 [server] handleRequest method=client.hello
+2026/06/21 05:50:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:50:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:50:13 [server] handleRequest method=fs.browse
+2026/06/21 05:50:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:50:13 [server] handleRequest method=fs.tree
+2026/06/21 05:50:13 [server] handleRequest method=fs.browse
+2026/06/21 05:50:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:54:10 [server] handleRequest method=client.hello
+2026/06/21 05:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:54:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:54:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:54:13 [server] handleRequest method=fs.browse
+2026/06/21 05:54:13 [server] handleRequest method=fs.browse
+2026/06/21 05:54:13 [server] handleRequest method=fs.tree
+2026/06/21 05:58:10 [server] handleRequest method=client.hello
+2026/06/21 05:58:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:58:13 [server] handleRequest method=claude.sessionList
+2026/06/21 05:58:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:58:13 [server] handleRequest method=fs.tree
+2026/06/21 05:58:13 [server] handleRequest method=fs.browse
+2026/06/21 05:58:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 05:58:13 [server] handleRequest method=fs.browse
+2026/06/21 06:02:10 [server] handleRequest method=client.hello
+2026/06/21 06:02:14 [server] handleRequest method=fs.tree
+2026/06/21 06:02:14 [server] handleRequest method=claude.sessionList
+2026/06/21 06:02:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:02:14 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:02:14 [server] handleRequest method=fs.browse
+2026/06/21 06:02:14 [server] handleRequest method=claude.sessionList
+2026/06/21 06:02:14 [server] handleRequest method=fs.browse
+2026/06/21 06:06:10 [server] handleRequest method=client.hello
+2026/06/21 06:06:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:06:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:06:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:06:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:06:13 [server] handleRequest method=fs.browse
+2026/06/21 06:06:13 [server] handleRequest method=fs.tree
+2026/06/21 06:06:13 [server] handleRequest method=fs.browse
+2026/06/21 06:10:10 [server] handleRequest method=client.hello
+2026/06/21 06:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:10:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:10:13 [server] handleRequest method=fs.browse
+2026/06/21 06:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:10:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:10:13 [server] handleRequest method=fs.browse
+2026/06/21 06:10:13 [server] handleRequest method=fs.tree
+2026/06/21 06:14:10 [server] handleRequest method=client.hello
+2026/06/21 06:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:14:13 [server] handleRequest method=fs.browse
+2026/06/21 06:14:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:14:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:14:13 [server] handleRequest method=fs.tree
+2026/06/21 06:14:13 [server] handleRequest method=fs.browse
+2026/06/21 06:18:10 [server] handleRequest method=client.hello
+2026/06/21 06:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:18:13 [server] handleRequest method=fs.browse
+2026/06/21 06:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:18:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:18:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:18:13 [server] handleRequest method=fs.tree
+2026/06/21 06:18:13 [server] handleRequest method=fs.browse
+2026/06/21 06:22:10 [server] handleRequest method=client.hello
+2026/06/21 06:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:22:13 [server] handleRequest method=claude.sessionList
+2026/06/21 06:22:13 [server] handleRequest method=fs.browse
+2026/06/21 06:22:13 [server] handleRequest method=fs.browse
+2026/06/21 06:22:13 [server] handleRequest method=fs.tree
+2026/06/21 06:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 06:22:13 [server] handleRequest method=cursor.sessionList
+2026/06/21 07:20:34 [server] handleRequest method=client.hello
+2026/06/21 07:20:37 [server] handleRequest method=cursor.taskStatus
+2026/06/21 07:20:37 [server] handleRequest method=claude.taskStatus
+2026/06/21 07:20:37 [server] handleRequest method=codex.taskStatus
+2026/06/21 07:20:37 [server] handleRequest method=fs.browse
+2026/06/21 07:28:24 [server] handleRequest method=client.hello
+2026/06/21 07:28:26 [server] handleRequest method=gemini.taskStatus
+2026/06/21 07:28:26 [server] handleRequest method=fs.tree
+2026/06/21 07:28:26 [server] handleRequest method=fs.browse
+2026/06/21 07:28:26 [server] handleRequest method=claude.sessionList
+2026/06/21 07:28:26 [server] handleRequest method=cursor.sessionList
+2026/06/21 07:28:26 [server] handleRequest method=git.status
+2026/06/21 07:28:26 [server] handleRequest method=claude.sessionList
+2026/06/21 07:28:26 [server] handleRequest method=fs.browse
+2026/06/21 07:28:26 [server] handleRequest method=cursor.sessionList
+2026/06/21 07:40:36 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/21 07:40:36 [server] client disconnected
+2026/06/21 07:40:36 [relay] disconnected; reconnecting in 1s
+2026/06/21 07:40:37 [relay] connecting to https://anycodeapp.com
+2026/06/21 07:40:39 [relay] connected; ready for clients
+2026/06/21 07:40:39 [server] client connected
+2026/06/21 07:40:39 [server] handleRequest method=client.hello
+2026/06/21 07:40:41 [server] handleRequest method=client.hello
+2026/06/21 07:40:41 [server] handleRequest method=gemini.taskStatus
+2026/06/21 07:40:41 [server] handleRequest method=claude.sessionList
+2026/06/21 07:40:41 [server] handleRequest method=git.status
+2026/06/21 07:40:41 [server] handleRequest method=fs.tree
+2026/06/21 07:40:41 [server] handleRequest method=claude.sessionList
+2026/06/21 07:40:41 [server] handleRequest method=fs.browse
+2026/06/21 07:40:41 [server] handleRequest method=cursor.sessionList
+2026/06/21 07:40:41 [server] handleRequest method=fs.browse
+2026/06/21 07:40:41 [server] handleRequest method=cursor.sessionList
+2026/06/21 07:40:42 [server] handleRequest method=cursor.taskStatus
+2026/06/21 07:40:42 [server] handleRequest method=codex.taskStatus
+2026/06/21 07:40:42 [server] handleRequest method=fs.browse
+2026/06/21 07:40:42 [server] handleRequest method=claude.taskStatus
+2026/06/21 08:01:06 [server] handleRequest method=client.hello
+2026/06/21 08:01:07 [server] handleRequest method=cursor.taskStatus
+2026/06/21 08:01:07 [server] handleRequest method=codex.taskStatus
+2026/06/21 08:01:07 [server] handleRequest method=claude.taskStatus
+2026/06/21 08:01:07 [server] handleRequest method=fs.browse
+2026/06/21 08:28:59 [server] handleRequest method=client.hello
+2026/06/21 08:29:01 [server] handleRequest method=codex.taskStatus
+2026/06/21 08:29:01 [server] handleRequest method=cursor.taskStatus
+2026/06/21 08:29:01 [server] handleRequest method=fs.browse
+2026/06/21 08:29:01 [server] handleRequest method=claude.taskStatus
+2026/06/21 08:34:34 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/21 08:34:34 [server] client disconnected
+2026/06/21 08:34:34 [relay] disconnected; reconnecting in 1s
+2026/06/21 08:34:35 [relay] connecting to https://anycodeapp.com
+2026/06/21 08:34:36 [relay] connected; ready for clients
+2026/06/21 08:34:36 [server] client connected
+2026/06/21 09:19:36 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/21 09:19:36 [server] client disconnected
+2026/06/21 09:19:36 [relay] disconnected; reconnecting in 1s
+2026/06/21 09:19:37 [relay] connecting to https://anycodeapp.com
+2026/06/21 09:19:37 [relay] connected; ready for clients
+2026/06/21 09:19:37 [server] client connected
+2026/06/21 12:29:39 [server] handleRequest method=client.hello
+2026/06/21 12:29:47 [server] handleRequest method=client.hello
+2026/06/21 12:29:49 [server] handleRequest method=claude.taskStatus
+2026/06/21 12:29:49 [server] handleRequest method=cursor.taskStatus
+2026/06/21 12:29:49 [server] handleRequest method=fs.browse
+2026/06/21 12:29:49 [server] handleRequest method=codex.taskStatus
+2026/06/21 12:39:45 [server] handleRequest method=client.hello
+2026/06/21 12:39:47 [server] handleRequest method=cursor.taskStatus
+2026/06/21 12:39:47 [server] handleRequest method=claude.taskStatus
+2026/06/21 12:39:47 [server] handleRequest method=codex.taskStatus
+2026/06/21 12:39:47 [server] handleRequest method=fs.browse
+2026/06/21 12:39:53 [server] handleRequest method=client.hello
+2026/06/21 12:39:55 [server] handleRequest method=cursor.taskStatus
+2026/06/21 12:39:55 [server] handleRequest method=fs.browse
+2026/06/21 12:39:55 [server] handleRequest method=codex.taskStatus
+2026/06/21 12:39:55 [server] handleRequest method=claude.taskStatus
+2026/06/21 13:11:05 [server] handleRequest method=client.hello
+2026/06/21 13:11:08 [server] handleRequest method=cursor.taskStatus
+2026/06/21 13:11:08 [server] handleRequest method=claude.taskStatus
+2026/06/21 13:11:08 [server] handleRequest method=fs.browse
+2026/06/21 13:11:08 [server] handleRequest method=codex.taskStatus
+2026/06/21 13:24:25 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/21 13:24:25 [server] client disconnected
+2026/06/21 13:24:25 [relay] disconnected; reconnecting in 1s
+2026/06/21 13:24:26 [relay] connecting to https://anycodeapp.com
+2026/06/21 13:24:28 [relay] connected; ready for clients
+2026/06/21 13:24:28 [server] client connected
+2026/06/22 08:51:21 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/22 08:51:21 [server] client disconnected
+2026/06/22 08:51:21 [relay] disconnected; reconnecting in 1s
+2026/06/22 08:51:22 [relay] connecting to https://anycodeapp.com
+2026/06/22 08:51:23 [relay] connected; ready for clients
+2026/06/22 08:51:23 [server] client connected
+2026/06/22 09:14:15 [server] handleRequest method=client.hello
+2026/06/22 09:14:18 [server] handleRequest method=gemini.taskStatus
+2026/06/22 09:14:18 [server] handleRequest method=claude.sessionList
+2026/06/22 09:14:18 [server] handleRequest method=cursor.sessionList
+2026/06/22 09:14:18 [server] handleRequest method=claude.sessionList
+2026/06/22 09:14:18 [server] handleRequest method=fs.browse
+2026/06/22 09:14:18 [server] handleRequest method=cursor.sessionList
+2026/06/22 09:14:18 [server] handleRequest method=fs.tree
+2026/06/22 09:14:18 [server] handleRequest method=fs.browse
+2026/06/22 09:14:18 [server] handleRequest method=git.status
+2026/06/22 12:44:09 [server] handleRequest method=client.hello
+2026/06/22 12:44:10 [server] handleRequest method=claude.sessionList
+2026/06/22 12:44:10 [server] handleRequest method=gemini.taskStatus
+2026/06/22 12:44:10 [server] handleRequest method=claude.sessionList
+2026/06/22 12:44:10 [server] handleRequest method=cursor.sessionList
+2026/06/22 12:44:10 [server] handleRequest method=fs.browse
+2026/06/22 12:44:10 [server] handleRequest method=cursor.sessionList
+2026/06/22 12:44:10 [server] handleRequest method=fs.tree
+2026/06/22 12:44:10 [server] handleRequest method=git.status
+2026/06/22 12:44:10 [server] handleRequest method=fs.browse
+2026/06/22 14:31:10 [server] handleRequest method=client.hello
+2026/06/22 14:31:12 [server] handleRequest method=git.status
+2026/06/22 14:31:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:31:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:31:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 14:31:12 [server] handleRequest method=fs.browse
+2026/06/22 14:31:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:31:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:31:12 [server] handleRequest method=fs.browse
+2026/06/22 14:31:12 [server] handleRequest method=fs.tree
+2026/06/22 14:36:11 [server] handleRequest method=client.hello
+2026/06/22 14:36:13 [server] handleRequest method=claude.sessionList
+2026/06/22 14:36:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 14:36:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:36:13 [server] handleRequest method=fs.browse
+2026/06/22 14:36:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:36:13 [server] handleRequest method=fs.browse
+2026/06/22 14:36:13 [server] handleRequest method=fs.tree
+2026/06/22 14:36:13 [server] handleRequest method=claude.sessionList
+2026/06/22 14:36:13 [server] handleRequest method=git.status
+2026/06/22 14:41:11 [server] handleRequest method=client.hello
+2026/06/22 14:41:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 14:41:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:41:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:41:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:41:12 [server] handleRequest method=fs.browse
+2026/06/22 14:41:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:41:12 [server] handleRequest method=fs.browse
+2026/06/22 14:41:12 [server] handleRequest method=fs.tree
+2026/06/22 14:41:12 [server] handleRequest method=git.status
+2026/06/22 14:46:11 [server] handleRequest method=client.hello
+2026/06/22 14:46:13 [server] handleRequest method=claude.sessionList
+2026/06/22 14:46:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 14:46:13 [server] handleRequest method=claude.sessionList
+2026/06/22 14:46:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:46:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:46:13 [server] handleRequest method=fs.browse
+2026/06/22 14:46:13 [server] handleRequest method=fs.browse
+2026/06/22 14:46:13 [server] handleRequest method=fs.tree
+2026/06/22 14:46:13 [server] handleRequest method=git.status
+2026/06/22 14:51:10 [server] handleRequest method=client.hello
+2026/06/22 14:51:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 14:51:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:51:12 [server] handleRequest method=fs.browse
+2026/06/22 14:51:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:51:12 [server] handleRequest method=claude.sessionList
+2026/06/22 14:51:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:51:12 [server] handleRequest method=fs.tree
+2026/06/22 14:51:12 [server] handleRequest method=fs.browse
+2026/06/22 14:51:12 [server] handleRequest method=git.status
+2026/06/22 14:56:10 [server] handleRequest method=client.hello
+2026/06/22 14:56:11 [server] handleRequest method=claude.sessionList
+2026/06/22 14:56:11 [server] handleRequest method=fs.tree
+2026/06/22 14:56:11 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:56:11 [server] handleRequest method=fs.browse
+2026/06/22 14:56:11 [server] handleRequest method=git.status
+2026/06/22 14:56:11 [server] handleRequest method=fs.browse
+2026/06/22 14:56:11 [server] handleRequest method=claude.sessionList
+2026/06/22 14:56:11 [server] handleRequest method=cursor.sessionList
+2026/06/22 14:56:11 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:01:10 [server] handleRequest method=client.hello
+2026/06/22 15:01:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:01:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:01:12 [server] handleRequest method=fs.browse
+2026/06/22 15:01:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:01:12 [server] handleRequest method=git.status
+2026/06/22 15:01:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:01:12 [server] handleRequest method=fs.browse
+2026/06/22 15:01:12 [server] handleRequest method=fs.tree
+2026/06/22 15:01:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:06:11 [server] handleRequest method=client.hello
+2026/06/22 15:06:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:06:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:06:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:06:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:06:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:06:13 [server] handleRequest method=fs.browse
+2026/06/22 15:06:13 [server] handleRequest method=fs.tree
+2026/06/22 15:06:13 [server] handleRequest method=fs.browse
+2026/06/22 15:06:13 [server] handleRequest method=git.status
+2026/06/22 15:11:11 [server] handleRequest method=client.hello
+2026/06/22 15:11:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:11:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:11:12 [server] handleRequest method=fs.browse
+2026/06/22 15:11:12 [server] handleRequest method=fs.tree
+2026/06/22 15:11:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:11:12 [server] handleRequest method=fs.browse
+2026/06/22 15:11:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:11:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:11:12 [server] handleRequest method=git.status
+2026/06/22 15:16:11 [server] handleRequest method=client.hello
+2026/06/22 15:16:14 [server] handleRequest method=claude.sessionList
+2026/06/22 15:16:14 [server] handleRequest method=fs.browse
+2026/06/22 15:16:14 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:16:14 [server] handleRequest method=claude.sessionList
+2026/06/22 15:16:14 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:16:14 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:16:14 [server] handleRequest method=fs.browse
+2026/06/22 15:16:14 [server] handleRequest method=fs.tree
+2026/06/22 15:16:14 [server] handleRequest method=git.status
+2026/06/22 15:21:10 [server] handleRequest method=client.hello
+2026/06/22 15:21:11 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:21:11 [server] handleRequest method=claude.sessionList
+2026/06/22 15:21:11 [server] handleRequest method=fs.browse
+2026/06/22 15:21:11 [server] handleRequest method=fs.tree
+2026/06/22 15:21:11 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:21:11 [server] handleRequest method=claude.sessionList
+2026/06/22 15:21:11 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:21:11 [server] handleRequest method=git.status
+2026/06/22 15:21:11 [server] handleRequest method=fs.browse
+2026/06/22 15:26:10 [server] handleRequest method=client.hello
+2026/06/22 15:26:12 [server] handleRequest method=git.status
+2026/06/22 15:26:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:26:12 [server] handleRequest method=fs.browse
+2026/06/22 15:26:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:26:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:26:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:26:12 [server] handleRequest method=fs.browse
+2026/06/22 15:26:12 [server] handleRequest method=fs.tree
+2026/06/22 15:31:10 [server] handleRequest method=client.hello
+2026/06/22 15:31:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:31:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:31:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:31:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:31:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:31:12 [server] handleRequest method=fs.browse
+2026/06/22 15:31:12 [server] handleRequest method=fs.browse
+2026/06/22 15:31:12 [server] handleRequest method=git.status
+2026/06/22 15:31:12 [server] handleRequest method=fs.tree
+2026/06/22 15:36:12 [server] handleRequest method=client.hello
+2026/06/22 15:36:14 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:36:14 [server] handleRequest method=claude.sessionList
+2026/06/22 15:36:14 [server] handleRequest method=claude.sessionList
+2026/06/22 15:36:14 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:36:14 [server] handleRequest method=fs.browse
+2026/06/22 15:36:14 [server] handleRequest method=fs.browse
+2026/06/22 15:36:14 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:36:14 [server] handleRequest method=fs.tree
+2026/06/22 15:36:14 [server] handleRequest method=git.status
+2026/06/22 15:41:11 [server] handleRequest method=client.hello
+2026/06/22 15:41:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:41:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:41:13 [server] handleRequest method=git.status
+2026/06/22 15:41:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:41:13 [server] handleRequest method=fs.browse
+2026/06/22 15:41:13 [server] handleRequest method=fs.tree
+2026/06/22 15:41:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:41:13 [server] handleRequest method=fs.browse
+2026/06/22 15:41:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:46:12 [server] handleRequest method=client.hello
+2026/06/22 15:46:15 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:46:15 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:46:15 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:46:15 [server] handleRequest method=fs.browse
+2026/06/22 15:46:15 [server] handleRequest method=claude.sessionList
+2026/06/22 15:46:15 [server] handleRequest method=claude.sessionList
+2026/06/22 15:46:15 [server] handleRequest method=fs.tree
+2026/06/22 15:46:15 [server] handleRequest method=git.status
+2026/06/22 15:46:15 [server] handleRequest method=fs.browse
+2026/06/22 15:51:11 [server] handleRequest method=client.hello
+2026/06/22 15:51:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:51:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:51:13 [server] handleRequest method=claude.sessionList
+2026/06/22 15:51:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:51:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:51:13 [server] handleRequest method=fs.browse
+2026/06/22 15:51:13 [server] handleRequest method=git.status
+2026/06/22 15:51:13 [server] handleRequest method=fs.tree
+2026/06/22 15:51:13 [server] handleRequest method=fs.browse
+2026/06/22 15:56:10 [server] handleRequest method=client.hello
+2026/06/22 15:56:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:56:12 [server] handleRequest method=fs.tree
+2026/06/22 15:56:12 [server] handleRequest method=claude.sessionList
+2026/06/22 15:56:12 [server] handleRequest method=fs.browse
+2026/06/22 15:56:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:56:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 15:56:12 [server] handleRequest method=fs.browse
+2026/06/22 15:56:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 15:56:12 [server] handleRequest method=git.status
+2026/06/22 16:01:11 [server] handleRequest method=client.hello
+2026/06/22 16:01:13 [server] handleRequest method=git.status
+2026/06/22 16:01:13 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:01:13 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:01:13 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:13 [server] handleRequest method=gemini.taskStatus
+2026/06/22 16:01:13 [server] handleRequest method=fs.tree
+2026/06/22 16:01:13 [server] handleRequest method=fs.browse
+2026/06/22 16:01:13 [server] handleRequest method=fs.browse
+2026/06/22 16:01:31 [server] handleRequest method=client.hello
+2026/06/22 16:01:33 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:33 [server] handleRequest method=fs.tree
+2026/06/22 16:01:33 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:33 [server] handleRequest method=codex.threadResume
+2026/06/22 16:01:33 [server] handleRequest method=fs.browse
+2026/06/22 16:01:33 [agent] SendContext method=thread/resume
+2026/06/22 16:01:33 [server] handleRequest method=fs.browse
+2026/06/22 16:01:33 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:01:33 [server] handleRequest method=claude.loadSession
+2026/06/22 16:01:33 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:01:33 [server] handleRequest method=codex.start
+2026/06/22 16:01:33 [server] handleRequest method=claude.start
+2026/06/22 16:01:33 [server] handleRequest method=cursor.start
+2026/06/22 16:01:33 [codex.start] command=codex cwd=C:\Users\lenovo, already_running=true
+2026/06/22 16:01:33 [codex.start] success
+2026/06/22 16:01:34 [agent] SendContext method=thread/resume returned
+2026/06/22 16:01:34 [server] handleRequest method=codex.modelList
+2026/06/22 16:01:34 [agent] SendContext method=model/list
+2026/06/22 16:01:34 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:01:38 [agent] SendContext method=model/list returned
+2026/06/22 16:01:38 [server] handleRequest method=claude.start
+2026/06/22 16:01:38 [server] handleRequest method=codex.configRead
+2026/06/22 16:01:38 [agent] SendContext method=config/read
+2026/06/22 16:01:38 [agent] SendContext method=config/read returned
+2026/06/22 16:01:39 [server] handleRequest method=codex.threadList
+2026/06/22 16:01:39 [agent] SendContext method=thread/list
+2026/06/22 16:01:39 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:39 [server] handleRequest method=claude.sessionList
+2026/06/22 16:01:39 [agent] SendContext method=thread/list returned
+2026/06/22 16:06:10 [server] handleRequest method=client.hello
+2026/06/22 16:06:12 [server] handleRequest method=claude.sessionList
+2026/06/22 16:06:12 [server] handleRequest method=gemini.taskStatus
+2026/06/22 16:06:12 [server] handleRequest method=fs.browse
+2026/06/22 16:06:12 [server] handleRequest method=git.status
+2026/06/22 16:06:12 [server] handleRequest method=claude.sessionList
+2026/06/22 16:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:06:12 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:06:12 [server] handleRequest method=fs.browse
+2026/06/22 16:06:12 [server] handleRequest method=fs.tree
+2026/06/22 16:34:25 [server] read error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/06/22 16:34:25 [server] client disconnected
+2026/06/22 16:34:25 [relay] disconnected; reconnecting in 1s
+2026/06/22 16:34:26 [relay] connecting to https://anycodeapp.com
+2026/06/22 16:34:27 [relay] connected; ready for clients
+2026/06/22 16:34:27 [server] client connected
+2026/06/22 16:34:28 [server] handleRequest method=client.hello
+2026/06/22 16:34:32 [server] handleRequest method=gemini.taskStatus
+2026/06/22 16:34:32 [server] handleRequest method=claude.sessionList
+2026/06/22 16:34:32 [server] handleRequest method=claude.sessionList
+2026/06/22 16:34:32 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:34:32 [server] handleRequest method=cursor.sessionList
+2026/06/22 16:34:32 [server] handleRequest method=fs.browse
+2026/06/22 16:34:32 [server] handleRequest method=fs.tree
+2026/06/22 16:34:32 [server] handleRequest method=fs.browse
+2026/06/22 16:34:32 [server] handleRequest method=git.status
+2026/06/22 17:57:17 [server] handleRequest method=client.hello
+2026/06/22 17:57:20 [server] handleRequest method=claude.loadSession
+2026/06/22 17:57:20 [server] handleRequest method=fs.browse
+2026/06/22 17:57:20 [server] handleRequest method=claude.taskStatus
+2026/06/22 17:57:20 [server] handleRequest method=cursor.taskStatus
+2026/06/22 17:57:20 [server] handleRequest method=codex.threadResume
+2026/06/22 17:57:20 [server] handleRequest method=codex.taskStatus
+2026/06/22 17:57:20 [server] handleRequest method=codex.threadList
+2026/06/22 17:57:20 [agent] SendContext method=thread/list
+2026/06/22 17:57:20 [agent] SendContext method=thread/resume
+2026/06/22 17:57:20 [agent] SendContext method=thread/list returned
+2026/06/22 17:57:20 [agent] SendContext method=thread/resume returned
+2026/06/22 17:57:27 [server] handleRequest method=claude.status
+2026/06/22 17:57:27 [server] handleRequest method=claude.sessionList
+2026/06/22 17:57:41 [server] handleRequest method=claude.loadSession
+2026/06/22 17:57:41 [agent] SendContext method=session/load
+2026/06/22 17:57:46 [agent] SendContext method=session/load returned
+2026/06/22 17:58:21 [server] handleRequest method=claude.prompt
+2026/06/22 17:58:21 [agent] SendContext method=session/prompt
+2026/06/22 17:58:27 [agent] SendContext method=session/prompt returned
+2026/06/22 17:58:28 [server] handleRequest method=claude.sessionList
+2026/06/22 17:58:33 [server] handleRequest method=claude.setConfig
+2026/06/22 17:58:40 [server] handleRequest method=claude.prompt
+2026/06/22 17:58:40 [agent] SendContext method=session/prompt
+2026/06/22 17:58:44 [agent] SendContext method=session/prompt returned
+2026/06/22 17:58:46 [server] handleRequest method=claude.sessionList
+2026/06/22 17:58:49 [server] handleRequest method=claude.sessionList
+2026/06/22 17:59:07 [server] handleRequest method=claude.prompt
+2026/06/22 17:59:07 [agent] SendContext method=session/prompt
+2026/06/22 17:59:15 [agent] SendContext method=session/prompt returned
+2026/06/22 17:59:15 [server] handleRequest method=claude.sessionList
+2026/06/22 18:00:08 [server] handleRequest method=claude.prompt
+2026/06/22 18:00:08 [agent] SendContext method=session/prompt
+2026/06/22 18:00:16 [agent] SendContext method=session/prompt returned
+2026/06/22 18:00:17 [server] handleRequest method=claude.sessionList
+2026/06/22 18:00:26 [server] handleRequest method=claude.prompt
+2026/06/22 18:00:26 [agent] SendContext method=session/prompt
+2026/06/22 18:00:43 [agent] SendContext method=session/prompt returned
+2026/06/22 18:00:44 [server] handleRequest method=claude.sessionList
+2026/06/22 18:01:06 [server] handleRequest method=claude.prompt
+2026/06/22 18:01:06 [agent] SendContext method=session/prompt
+2026/06/22 18:01:13 [agent] SendContext method=session/prompt returned
+2026/06/22 18:01:13 [server] handleRequest method=claude.sessionList
+2026/06/22 18:03:26 [server] handleRequest method=claude.prompt
+2026/06/22 18:03:26 [agent] SendContext method=session/prompt
+2026/06/22 18:05:44 [claude] ACP request: session/request_permission
+2026/06/22 18:07:32 [server] handleRequest method=claude.permission/respond
+2026/06/22 18:07:32 [server] handleRequest method=claude.permission/respond
+2026/06/22 18:07:42 [server] handleRequest method=claude.setConfig
+2026/06/22 18:08:16 [agent:stderr] No onPostToolUseHook found for tool use ID: tooluse_amLhZMd4eDBGjUy97cJgxf
+2026/06/22 18:10:37 [agent] SendContext method=session/prompt returned
+2026/06/22 18:10:38 [server] handleRequest method=claude.sessionList
+2026/06/22 18:11:23 [server] handleRequest method=claude.sessionList
+2026/06/22 18:11:25 [server] handleRequest method=codex.threadList
+2026/06/22 18:11:25 [agent] SendContext method=thread/list
+2026/06/22 18:11:25 [agent] SendContext method=thread/list returned
+2026/06/22 18:11:26 [server] handleRequest method=codex.threadResume
+2026/06/22 18:11:26 [agent] SendContext method=thread/resume
+2026/06/22 18:11:26 [agent] SendContext method=thread/resume returned
+2026/06/22 18:11:32 [server] handleRequest method=codex.threadList
+2026/06/22 18:11:32 [agent] SendContext method=thread/list
+2026/06/22 18:11:32 [agent] SendContext method=thread/list returned
+2026/06/22 18:11:35 [server] handleRequest method=claude.sessionList
+2026/06/22 18:13:44 [server] handleRequest method=claude.sessionList
+2026/06/22 18:13:46 [server] handleRequest method=codex.threadList
+2026/06/22 18:13:46 [agent] SendContext method=thread/list
+2026/06/22 18:13:47 [agent] SendContext method=thread/list returned
+2026/06/22 18:13:47 [server] handleRequest method=codex.threadResume
+2026/06/22 18:13:47 [agent] SendContext method=thread/resume
+2026/06/22 18:13:47 [agent] SendContext method=thread/resume returned
+2026/06/22 18:13:48 [server] handleRequest method=codex.threadList
+2026/06/22 18:13:48 [agent] SendContext method=thread/list
+2026/06/22 18:13:48 [agent] SendContext method=thread/list returned
+2026/06/22 18:13:51 [server] handleRequest method=codex.threadResume
+2026/06/22 18:13:51 [agent] SendContext method=thread/resume
+2026/06/22 18:13:53 [server] handleRequest method=codex.threadList
+2026/06/22 18:13:53 [agent] SendContext method=thread/list
+2026/06/22 18:13:53 [agent] SendContext method=thread/list returned
+2026/06/22 18:13:55 [server] handleRequest method=codex.threadResume
+2026/06/22 18:13:55 [agent] SendContext method=thread/resume
+2026/06/22 18:13:56 [agent] SendContext method=thread/resume returned
+2026/06/22 18:13:56 [agent] SendContext method=thread/resume returned
+2026/06/22 18:13:58 [agent:stderr] 2026-06-22T10:13:58.449084Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer realm=\"OAuth\", resource_metadata=\"https://mcp.cloudflare.com/.well-known/oauth-protected-resource/mcp\", error=\"invalid_token\", error_description=\"Missing or invalid access token\"" })
+2026/06/22 18:14:21 [server] handleRequest method=codex.turnStart
+2026/06/22 18:14:21 [agent] SendContext method=turn/start
+2026/06/22 18:14:21 [agent] SendContext method=turn/start returned
+2026/06/22 18:14:31 [agent:stderr] 2026-06-22T10:14:31.140063Z ERROR codex_core::exec: exec error: windows sandbox: CreateProcessWithLogonW failed: 1056
+2026/06/22 18:14:31 [agent:stderr] 2026-06-22T10:14:31.140511Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: CreateProcessWithLogonW failed: 1056" })
+2026/06/22 18:14:38 [agent:stderr] 2026-06-22T10:14:38.293808Z ERROR codex_core::exec: exec error: windows sandbox: runner error: CreateProcessAsUserW failed: 1312
+2026/06/22 18:14:38 [agent:stderr] 2026-06-22T10:14:38.299119Z ERROR codex_core::tools::router: error=execution error: Io(Custom { kind: Other, error: "windows sandbox: runner error: CreateProcessAsUserW failed: 1312" })
+2026/06/22 18:14:45 [server] handleRequest method=codex.respond
+2026/06/22 18:14:45 [server] handleRequest method=codex.respond
+2026/06/22 18:14:45 [server] handleRequest method=codex.respond
+2026/06/22 18:14:45 [server] handleRequest method=codex.respond
+2026/06/22 18:14:52 [server] handleRequest method=codex.configWrite
+2026/06/22 18:14:52 [agent] SendContext method=config/value/write
+2026/06/22 18:14:52 [agent] SendContext method=config/value/write returned
+2026/06/22 18:14:57 [server] handleRequest method=codex.respond
+2026/06/22 18:14:57 [server] handleRequest method=codex.respond
+2026/06/22 18:14:57 [server] handleRequest method=codex.respond
+2026/06/22 18:14:57 [server] handleRequest method=codex.respond
+2026/06/22 18:15:12 [server] handleRequest method=codex.respond
+2026/06/22 18:15:12 [server] handleRequest method=codex.respond
+2026/06/22 18:15:12 [server] handleRequest method=codex.respond
+2026/06/22 18:15:12 [server] handleRequest method=codex.respond
+2026/06/22 18:15:13 [server] handleRequest method=codex.respond
+2026/06/22 18:15:13 [server] handleRequest method=codex.respond
+2026/06/22 18:15:13 [server] handleRequest method=codex.respond
+2026/06/22 18:15:13 [server] handleRequest method=codex.respond
+2026/06/22 18:16:05 [server] handleRequest method=codex.respond
+2026/06/22 18:16:05 [server] handleRequest method=codex.respond
+2026/06/22 18:16:05 [server] handleRequest method=codex.respond
+2026/06/22 18:16:05 [server] handleRequest method=codex.respond
+2026/06/22 18:16:07 [server] handleRequest method=codex.respond
+2026/06/22 18:16:07 [server] handleRequest method=codex.respond
+2026/06/22 18:16:07 [server] handleRequest method=codex.respond
+2026/06/22 18:16:07 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:31 [server] handleRequest method=codex.respond
+2026/06/22 18:16:57 [server] handleRequest method=codex.respond
+2026/06/22 18:16:57 [server] handleRequest method=codex.respond
+2026/06/22 18:16:57 [server] handleRequest method=codex.respond
+2026/06/22 18:16:58 [server] handleRequest method=codex.respond
+2026/06/22 18:16:58 [server] handleRequest method=codex.respond
+2026/06/22 18:16:58 [server] handleRequest method=codex.respond
+2026/06/22 18:17:00 [agent:stderr] 2026-06-22T10:17:00.841890Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:17:00 [agent:stderr] Wall time: 2.9 seconds
+2026/06/22 18:17:00 [agent:stderr] Output:
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\ContentView.swift:529:            let data = try await store.client.callRawResult(method: "daemon.configRead", params: [:])
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\ContentView.swift:543:                _ = try await store.client.callRawResult(method: "daemon.configWrite", params: ["proxy": daemonProxy])
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\ClaudeStore.swift:473:                method: "claude.setConfig",
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:188:            let result: CodexModelListResponse = try await client.call(method: "codex.modelList")
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:198:            let result: CodexConfigResponse = try await client.call(method: "codex.configRead")
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:200:            currentReasoningEffort = result.config.model_reasoning_effort ?? "medium"
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:212:                method: "codex.configWrite",
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:227:                method: "codex.configWrite",
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:228:                params: ["keyPath": "model_reasoning_effort", "value": effort, "mergeStrategy": "replace"] as [String: Any]
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CodexStore.swift:242:                method: "codex.configWrite",
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Views\CodexThreadListView.swift:358:                            if let efforts = codex.availableModels.first(where: { $0.id == codex.currentModel })?.supportedReasoningEfforts {
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Models\CodexResponses.swift:94:    let supportedReasoningEfforts: [CodexReasoningEffort]?
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Models\CodexResponses.swift:105:        supportedReasoningEfforts = try? container.decode([CodexReasoningEffort].self, forKey: .supportedReasoningEfforts)
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Models\CodexResponses.swift:111:        case supportedReasoningEfforts, defaultReasoningEffort
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Models\CodexResponses.swift:123:    let model_reasoning_effort: String?
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Services\CursorStore.swift:362:                method: "cursor.setConfig",
+2026/06/22 18:17:00 [agent:stderr] ios\AnyCode\Views\ModelPickerSheet.swift:50:                   let efforts = currentModelData.supportedReasoningEfforts, !efforts.isEmpty {
+2026/06/22 18:17:00 [agent:stderr] rg: daemon-go\*_test.go: 文件名、目录名或卷标语法不正确。 (os error 123)
+2026/06/22 18:17:00 [agent:stderr] 
+2026/06/22 18:17:17 [server] handleRequest method=codex.respond
+2026/06/22 18:17:17 [server] handleRequest method=codex.respond
+2026/06/22 18:17:17 [server] handleRequest method=codex.respond
+2026/06/22 18:17:17 [server] handleRequest method=codex.respond
+2026/06/22 18:17:18 [server] handleRequest method=codex.respond
+2026/06/22 18:17:18 [server] handleRequest method=codex.respond
+2026/06/22 18:17:18 [server] handleRequest method=codex.respond
+2026/06/22 18:17:18 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:35 [server] handleRequest method=codex.respond
+2026/06/22 18:17:47 [server] handleRequest method=codex.respond
+2026/06/22 18:17:47 [server] handleRequest method=codex.respond
+2026/06/22 18:18:04 [server] handleRequest method=codex.respond
+2026/06/22 18:18:04 [server] handleRequest method=codex.respond
+2026/06/22 18:18:04 [server] handleRequest method=codex.respond
+2026/06/22 18:18:05 [server] handleRequest method=codex.respond
+2026/06/22 18:18:05 [server] handleRequest method=codex.respond
+2026/06/22 18:18:05 [server] handleRequest method=codex.respond
+2026/06/22 18:18:05 [server] handleRequest method=codex.respond
+2026/06/22 18:18:05 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:22 [server] handleRequest method=codex.respond
+2026/06/22 18:18:37 [server] handleRequest method=codex.respond
+2026/06/22 18:18:37 [server] handleRequest method=codex.respond
+2026/06/22 18:18:37 [server] handleRequest method=codex.respond
+2026/06/22 18:18:37 [server] handleRequest method=codex.respond
+2026/06/22 18:18:47 [server] handleRequest method=codex.respond
+2026/06/22 18:18:48 [server] handleRequest method=codex.respond
+2026/06/22 18:22:53 [server] handleRequest method=codex.turnStart
+2026/06/22 18:22:53 [agent] SendContext method=turn/start
+2026/06/22 18:22:53 [agent] SendContext method=turn/start returned
+2026/06/22 18:23:09 [server] handleRequest method=codex.respond
+2026/06/22 18:23:09 [server] handleRequest method=codex.respond
+2026/06/22 18:23:09 [server] handleRequest method=codex.respond
+2026/06/22 18:23:10 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:27 [server] handleRequest method=codex.respond
+2026/06/22 18:23:47 [server] handleRequest method=codex.respond
+2026/06/22 18:23:48 [server] handleRequest method=codex.respond
+2026/06/22 18:23:48 [server] handleRequest method=codex.respond
+2026/06/22 18:23:48 [server] handleRequest method=codex.respond
+2026/06/22 18:23:48 [server] handleRequest method=codex.respond
+2026/06/22 18:23:48 [server] handleRequest method=codex.respond
+2026/06/22 18:24:16 [server] handleRequest method=codex.respond
+2026/06/22 18:24:16 [server] handleRequest method=codex.respond
+2026/06/22 18:24:22 [server] handleRequest method=codex.respond
+2026/06/22 18:24:22 [server] handleRequest method=codex.respond
+2026/06/22 18:24:34 [agent:stderr] 2026-06-22T10:24:34.811399Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in D:\code\anycode\daemon-go\claude.go:
+2026/06/22 18:24:34 [agent:stderr] 	}
+2026/06/22 18:24:34 [agent:stderr] }
+2026/06/22 18:24:34 [agent:stderr] 
+2026/06/22 18:24:34 [agent:stderr] // Prompt sends text to the current session; if no session exists it creates a
+2026/06/22 18:24:34 [agent:stderr] // new one first.
+2026/06/22 18:24:34 [agent:stderr] func (c *ClaudeBridge) Prompt(text string, images []string) (string, error) {
+2026/06/22 18:24:43 [server] handleRequest method=codex.respond
+2026/06/22 18:24:43 [server] handleRequest method=codex.respond
+2026/06/22 18:24:57 [server] handleRequest method=codex.respond
+2026/06/22 18:24:57 [server] handleRequest method=codex.respond
+2026/06/22 18:25:10 [server] handleRequest method=codex.respond
+2026/06/22 18:25:11 [server] handleRequest method=codex.respond
+2026/06/22 18:25:24 [server] handleRequest method=codex.respond
+2026/06/22 18:25:24 [server] handleRequest method=codex.respond
+2026/06/22 18:25:30 [server] handleRequest method=codex.respond
+2026/06/22 18:25:30 [server] handleRequest method=codex.respond
+2026/06/22 18:25:37 [server] handleRequest method=codex.respond
+2026/06/22 18:25:38 [server] handleRequest method=codex.respond
+2026/06/22 18:25:51 [server] handleRequest method=codex.respond
+2026/06/22 18:25:51 [server] handleRequest method=codex.respond
+2026/06/22 18:25:59 [server] handleRequest method=codex.respond
+2026/06/22 18:25:59 [server] handleRequest method=codex.respond
+2026/06/22 18:26:15 [server] handleRequest method=codex.respond
+2026/06/22 18:26:15 [server] handleRequest method=codex.respond
+2026/06/22 18:26:23 [server] handleRequest method=codex.respond
+2026/06/22 18:26:23 [server] handleRequest method=codex.respond
+2026/06/22 18:26:32 [server] handleRequest method=codex.respond
+2026/06/22 18:26:32 [server] handleRequest method=codex.respond
+2026/06/22 18:26:50 [server] handleRequest method=codex.respond
+2026/06/22 18:26:50 [server] handleRequest method=codex.respond
+2026/06/22 18:26:56 [server] handleRequest method=codex.respond
+2026/06/22 18:26:57 [server] handleRequest method=codex.respond
+2026/06/22 18:27:02 [server] handleRequest method=git.diff
+2026/06/22 18:27:03 [agent:stderr] 2026-06-22T10:27:03.031428Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in D:\code\anycode\web\src\components\panels\ClaudePanel.tsx:
+2026/06/22 18:27:03 [agent:stderr]       error={store.error}
+2026/06/22 18:27:03 [agent:stderr]       dismissError={() => store.setState({ error: null })}
+2026/06/22 18:27:03 [agent:stderr]       currentModel={store.currentModel || "Claude 3.5 Sonnet"}
+2026/06/22 18:27:03 [agent:stderr]       availableModels={store.modelOptions.map(m => ({ modelId: m.id, name: m.name }))}
+2026/06/22 18:27:03 [agent:stderr]       setModel={(modelId) => store.setConfig({ model: modelId })}
+2026/06/22 18:27:03 [agent:stderr]       approvalMode={store.currentPermissionMode}
+2026/06/22 18:27:03 [agent:stderr]       setApprovalMode={(modeId) => store.setConfig({ permissionMode: modeId })}
+2026/06/22 18:27:08 [server] handleRequest method=codex.respond
+2026/06/22 18:27:08 [server] handleRequest method=codex.respond
+2026/06/22 18:27:20 [server] handleRequest method=codex.respond
+2026/06/22 18:27:20 [server] handleRequest method=codex.respond
+2026/06/22 18:27:28 [server] handleRequest method=codex.respond
+2026/06/22 18:27:28 [server] handleRequest method=codex.respond
+2026/06/22 18:27:37 [server] handleRequest method=codex.respond
+2026/06/22 18:27:37 [server] handleRequest method=codex.respond
+2026/06/22 18:27:46 [server] handleRequest method=codex.respond
+2026/06/22 18:27:47 [server] handleRequest method=codex.respond
+2026/06/22 18:27:55 [server] handleRequest method=codex.respond
+2026/06/22 18:27:55 [server] handleRequest method=codex.respond
+2026/06/22 18:28:07 [server] handleRequest method=codex.respond
+2026/06/22 18:28:07 [server] handleRequest method=codex.respond
+2026/06/22 18:28:18 [agent:stderr] 2026-06-22T10:28:18.379038Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to find expected lines in D:\code\anycode\ios\AnyCode\Views\ClaudeChatView.swift:
+2026/06/22 18:28:18 [agent:stderr] struct ClaudeConfigSheet: View {
+2026/06/22 18:28:18 [agent:stderr]     let claude: ClaudeStore
+2026/06/22 18:28:18 [agent:stderr]     @Environment(\.dismiss) private var dismiss
+2026/06/22 18:28:18 [agent:stderr]     private let models = ["default", "sonnet", "opus", "mimo-v2-pro", "mimo-v2.5-pro"]
+2026/06/22 18:28:18 [agent:stderr]     private let efforts = ["low", "medium", "high", "xhigh", "max"]
+2026/06/22 18:28:24 [server] handleRequest method=codex.respond
+2026/06/22 18:28:24 [server] handleRequest method=codex.respond
+2026/06/22 18:28:34 [server] handleRequest method=codex.respond
+2026/06/22 18:28:34 [server] handleRequest method=codex.respond
+2026/06/22 18:28:41 [server] handleRequest method=codex.respond
+2026/06/22 18:28:42 [server] handleRequest method=codex.respond
+2026/06/22 18:28:47 [server] handleRequest method=codex.respond
+2026/06/22 18:28:47 [server] handleRequest method=codex.respond
+2026/06/22 18:28:54 [server] handleRequest method=codex.respond
+2026/06/22 18:28:54 [server] handleRequest method=codex.respond
+2026/06/22 18:29:02 [server] handleRequest method=codex.respond
+2026/06/22 18:29:02 [server] handleRequest method=codex.respond
+2026/06/22 18:29:12 [server] handleRequest method=codex.respond
+2026/06/22 18:29:12 [server] handleRequest method=codex.respond
+2026/06/22 18:29:12 [server] handleRequest method=codex.respond
+2026/06/22 18:29:12 [server] handleRequest method=codex.respond
+2026/06/22 18:29:14 [agent:stderr] 2026-06-22T10:29:14.960126Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:29:14 [agent:stderr] Wall time: 2.8 seconds
+2026/06/22 18:29:14 [agent:stderr] Output:
+2026/06/22 18:29:14 [agent:stderr] rg: regex parse error:
+2026/06/22 18:29:14 [agent:stderr]     (?:CLAUDE_MODEL_OPTIONS|private let models = \[|setConfig\(\{ model|modelOptions|claude\.setConfig.*model|\)
+2026/06/22 18:29:14 [agent:stderr]     ^
+2026/06/22 18:29:14 [agent:stderr] error: unclosed group
+2026/06/22 18:29:14 [agent:stderr] 
+2026/06/22 18:29:21 [server] handleRequest method=codex.respond
+2026/06/22 18:29:21 [server] handleRequest method=codex.respond
+2026/06/22 18:29:22 [server] handleRequest method=codex.respond
+2026/06/22 18:29:23 [server] handleRequest method=codex.respond
+2026/06/22 18:29:23 [agent:stderr] 2026-06-22T10:29:23.414654Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:29:23 [agent:stderr] Wall time: 1.6 seconds
+2026/06/22 18:29:23 [agent:stderr] Output:
+2026/06/22 18:29:23 [agent:stderr] rg: regex parse error:
+2026/06/22 18:29:23 [agent:stderr]     (?:\)
+2026/06/22 18:29:23 [agent:stderr]     ^
+2026/06/22 18:29:23 [agent:stderr] error: unclosed group
+2026/06/22 18:29:23 [agent:stderr] 
+2026/06/22 18:29:33 [server] handleRequest method=codex.respond
+2026/06/22 18:29:33 [server] handleRequest method=codex.respond
+2026/06/22 18:29:33 [server] handleRequest method=codex.respond
+2026/06/22 18:29:33 [server] handleRequest method=codex.respond
+2026/06/22 18:29:35 [agent:stderr] 2026-06-22T10:29:35.836237Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:29:35 [agent:stderr] Wall time: 2.7 seconds
+2026/06/22 18:29:35 [agent:stderr] Output:
+2026/06/22 18:29:35 [agent:stderr] rg: regex parse error:
+2026/06/22 18:29:35 [agent:stderr]     (?:model: get|\)
+2026/06/22 18:29:35 [agent:stderr]     ^
+2026/06/22 18:29:35 [agent:stderr] error: unclosed group
+2026/06/22 18:29:35 [agent:stderr] 
+2026/06/22 18:29:42 [server] handleRequest method=codex.respond
+2026/06/22 18:29:42 [server] handleRequest method=codex.respond
+2026/06/22 18:29:53 [server] handleRequest method=codex.respond
+2026/06/22 18:29:53 [server] handleRequest method=codex.respond
+2026/06/22 18:29:53 [server] handleRequest method=codex.respond
+2026/06/22 18:29:54 [server] handleRequest method=codex.respond
+2026/06/22 18:30:05 [server] handleRequest method=codex.respond
+2026/06/22 18:30:06 [server] handleRequest method=codex.respond
+2026/06/22 18:30:13 [server] handleRequest method=codex.respond
+2026/06/22 18:30:13 [server] handleRequest method=codex.respond
+2026/06/22 18:30:27 [server] handleRequest method=codex.respond
+2026/06/22 18:30:27 [server] handleRequest method=codex.respond
+2026/06/22 18:30:35 [server] handleRequest method=codex.respond
+2026/06/22 18:30:35 [server] handleRequest method=codex.respond
+2026/06/22 18:30:35 [server] handleRequest method=codex.respond
+2026/06/22 18:30:35 [server] handleRequest method=codex.respond
+2026/06/22 18:30:45 [server] handleRequest method=codex.respond
+2026/06/22 18:30:48 [server] handleRequest method=codex.respond
+2026/06/22 18:30:49 [server] handleRequest method=codex.respond
+2026/06/22 18:30:49 [server] handleRequest method=codex.respond
+2026/06/22 18:30:54 [server] handleRequest method=codex.respond
+2026/06/22 18:30:55 [server] handleRequest method=codex.respond
+2026/06/22 18:31:01 [server] handleRequest method=codex.respond
+2026/06/22 18:31:02 [server] handleRequest method=codex.respond
+2026/06/22 18:31:10 [server] handleRequest method=codex.respond
+2026/06/22 18:31:10 [server] handleRequest method=codex.respond
+2026/06/22 18:31:16 [server] handleRequest method=codex.respond
+2026/06/22 18:31:17 [server] handleRequest method=codex.respond
+2026/06/22 18:31:20 [server] handleRequest method=codex.respond
+2026/06/22 18:31:21 [server] handleRequest method=codex.respond
+2026/06/22 18:31:33 [server] handleRequest method=codex.respond
+2026/06/22 18:31:33 [server] handleRequest method=codex.respond
+2026/06/22 18:31:33 [server] handleRequest method=codex.respond
+2026/06/22 18:31:33 [server] handleRequest method=codex.respond
+2026/06/22 18:31:43 [server] handleRequest method=codex.respond
+2026/06/22 18:31:43 [server] handleRequest method=codex.respond
+2026/06/22 18:31:43 [server] handleRequest method=codex.respond
+2026/06/22 18:31:43 [server] handleRequest method=codex.respond
+2026/06/22 18:31:45 [agent:stderr] 2026-06-22T10:31:45.277401Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:31:45 [agent:stderr] Wall time: 2.2 seconds
+2026/06/22 18:31:45 [agent:stderr] Output:
+2026/06/22 18:31:45 [agent:stderr] npm ERR! Missing script: "test"
+2026/06/22 18:31:45 [agent:stderr] npm ERR! 
+2026/06/22 18:31:45 [agent:stderr] npm ERR! To see a list of scripts, run:
+2026/06/22 18:31:45 [agent:stderr] npm ERR!   npm run
+2026/06/22 18:31:45 [agent:stderr] 
+2026/06/22 18:31:45 [agent:stderr] npm ERR! A complete log of this run can be found in: C:\Users\lenovo\AppData\Local\npm-cache\_logs\2026-06-22T10_31_45_027Z-debug-0.log
+2026/06/22 18:31:45 [agent:stderr] 
+2026/06/22 18:32:07 [agent:stderr] 2026-06-22T10:32:07.025334Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:32:07 [agent:stderr] Wall time: 24 seconds
+2026/06/22 18:32:07 [agent:stderr] Output:
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:00 [proxy] legacy open /__anycode_proxy/open?token=secret-token&url=http%3A%2F%2F127.0.0.1%3A3001%2F
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:01 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestServerRestoresProjectStateAcrossRestart3820977696\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:01 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestEventsResumeReportsCurrentProjectAfterSwitch4153252579\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:01 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestProjectOpenReturnsProjectGeneration518056660\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:01 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestProjectListIncludesPersistedProjectsAcrossRestart1993992802\002\nested\repo-b
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:02 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestFsWriteAbsoluteRejectsStaleProjectGeneration1059821386\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:02 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestGitStatusRejectsStaleProjectGeneration2602831016\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:02 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestClaudeNewSessionRejectsStaleProjectGeneration2321768621\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:02 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestCodexApplyFileChangesRejectsStaleProjectGeneration1090203165\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:02 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestCodexDynamicRejectsStaleProjectGeneration2686292941\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:03 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestProjectOpenRejectsOldGitBindingAndAcceptsNewBinding1999941099\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:03 [server] switched to project: C:\Users\lenovo\AppData\Local\Temp\TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings3198127943\002
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:04 [claude] spawning: claude-code-acp [] (cwd=C:\Users\lenovo\AppData\Local\Temp\TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings3198127943\002)
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:04 [agent] spawned: claude-code-acp [] (pid=36760)
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:04 [agent] SendContext method=initialize
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:04 [agent] SendContext method=initialize returned
+2026/06/22 18:32:07 [agent:stderr] 2026/06/22 18:32:04 [claude] ACP initialized
+2026/06/22 18:32:07 [agent:stderr] --- FAIL: TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings (3.32s)
+2026/06/22 18:32:07 [agent:stderr]     testing.go:1464: TempDir RemoveAll cleanup: unlinkat C:\Users\lenovo\AppData\Local\Temp\TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings3198127943\002: The process cannot access the file because it is being used by another process.
+2026/06/22 18:32:07 [agent:stderr] FAIL
+2026/06/22 18:32:07 [agent:stderr] FAIL	github.com/Yuikij/anycode-daemon	7.421s
+2026/06/22 18:32:07 [agent:stderr] FAIL
+2026/06/22 18:32:07 [agent:stderr] 
+2026/06/22 18:32:16 [server] handleRequest method=codex.respond
+2026/06/22 18:32:18 [server] handleRequest method=codex.respond
+2026/06/22 18:32:28 [server] handleRequest method=codex.respond
+2026/06/22 18:32:28 [server] handleRequest method=codex.respond
+2026/06/22 18:32:28 [server] handleRequest method=codex.respond
+2026/06/22 18:32:28 [server] handleRequest method=codex.respond
+2026/06/22 18:32:39 [server] handleRequest method=codex.respond
+2026/06/22 18:32:40 [server] handleRequest method=codex.respond
+2026/06/22 18:32:40 [server] handleRequest method=codex.respond
+2026/06/22 18:32:40 [server] handleRequest method=codex.respond
+2026/06/22 18:34:01 [server] handleRequest method=codex.respond
+2026/06/22 18:34:01 [server] handleRequest method=codex.respond
+2026/06/22 18:34:02 [server] handleRequest method=codex.respond
+2026/06/22 18:34:02 [server] handleRequest method=codex.respond
+2026/06/22 18:34:23 [server] handleRequest method=codex.respond
+2026/06/22 18:34:25 [server] handleRequest method=codex.respond
+2026/06/22 18:34:31 [server] handleRequest method=codex.respond
+2026/06/22 18:34:31 [server] handleRequest method=codex.respond
+2026/06/22 18:34:31 [server] handleRequest method=codex.respond
+2026/06/22 18:34:31 [server] handleRequest method=codex.respond
+2026/06/22 18:34:42 [server] handleRequest method=codex.respond
+2026/06/22 18:34:43 [server] handleRequest method=codex.respond
+2026/06/22 18:34:52 [server] handleRequest method=codex.respond
+2026/06/22 18:34:52 [server] handleRequest method=codex.respond
+2026/06/22 18:34:52 [server] handleRequest method=codex.respond
+2026/06/22 18:34:52 [server] handleRequest method=codex.respond
+2026/06/22 18:37:33 [server] handleRequest method=codex.turnStart
+2026/06/22 18:37:33 [agent] SendContext method=turn/start
+2026/06/22 18:37:33 [agent] SendContext method=turn/start returned
+2026/06/22 18:38:02 [server] handleRequest method=codex.respond
+2026/06/22 18:38:02 [server] handleRequest method=codex.respond
+2026/06/22 18:38:02 [server] handleRequest method=codex.respond
+2026/06/22 18:38:02 [server] handleRequest method=codex.respond
+2026/06/22 18:38:02 [server] handleRequest method=codex.respond
+2026/06/22 18:38:03 [server] handleRequest method=codex.respond
+2026/06/22 18:38:03 [server] handleRequest method=codex.respond
+2026/06/22 18:38:03 [server] handleRequest method=codex.respond
+2026/06/22 18:38:46 [server] handleRequest method=codex.respond
+2026/06/22 18:38:47 [server] handleRequest method=codex.respond
+2026/06/22 18:39:06 [server] handleRequest method=codex.respond
+2026/06/22 18:39:06 [server] handleRequest method=codex.respond
+2026/06/22 18:39:13 [server] handleRequest method=codex.respond
+2026/06/22 18:39:13 [server] handleRequest method=codex.respond
+2026/06/22 18:39:32 [server] handleRequest method=codex.respond
+2026/06/22 18:39:32 [server] handleRequest method=codex.respond
+2026/06/22 18:39:38 [server] handleRequest method=codex.respond
+2026/06/22 18:39:38 [server] handleRequest method=codex.respond
+2026/06/22 18:39:49 [server] handleRequest method=codex.respond
+2026/06/22 18:39:49 [server] handleRequest method=codex.respond
+2026/06/22 18:39:55 [server] handleRequest method=codex.respond
+2026/06/22 18:39:55 [server] handleRequest method=codex.respond
+2026/06/22 18:40:15 [server] handleRequest method=codex.respond
+2026/06/22 18:40:15 [server] handleRequest method=codex.respond
+2026/06/22 18:40:20 [server] handleRequest method=codex.respond
+2026/06/22 18:40:21 [server] handleRequest method=codex.respond
+2026/06/22 18:40:25 [server] handleRequest method=codex.respond
+2026/06/22 18:40:27 [server] handleRequest method=codex.respond
+2026/06/22 18:40:33 [server] handleRequest method=codex.respond
+2026/06/22 18:40:34 [server] handleRequest method=codex.respond
+2026/06/22 18:40:43 [server] handleRequest method=codex.respond
+2026/06/22 18:40:43 [server] handleRequest method=codex.respond
+2026/06/22 18:40:43 [server] handleRequest method=codex.respond
+2026/06/22 18:40:43 [server] handleRequest method=codex.respond
+2026/06/22 18:40:52 [server] handleRequest method=codex.respond
+2026/06/22 18:40:52 [server] handleRequest method=codex.respond
+2026/06/22 18:41:03 [server] handleRequest method=codex.respond
+2026/06/22 18:41:04 [server] handleRequest method=codex.respond
+2026/06/22 18:41:10 [server] handleRequest method=codex.respond
+2026/06/22 18:41:10 [server] handleRequest method=codex.respond
+2026/06/22 18:41:22 [server] handleRequest method=codex.respond
+2026/06/22 18:41:22 [server] handleRequest method=codex.respond
+2026/06/22 18:41:27 [server] handleRequest method=codex.respond
+2026/06/22 18:41:27 [server] handleRequest method=codex.respond
+2026/06/22 18:41:34 [server] handleRequest method=codex.respond
+2026/06/22 18:41:34 [server] handleRequest method=codex.respond
+2026/06/22 18:41:39 [server] handleRequest method=codex.respond
+2026/06/22 18:41:39 [server] handleRequest method=codex.respond
+2026/06/22 18:41:49 [server] handleRequest method=codex.respond
+2026/06/22 18:41:49 [server] handleRequest method=codex.respond
+2026/06/22 18:41:49 [server] handleRequest method=codex.respond
+2026/06/22 18:41:49 [server] handleRequest method=codex.respond
+2026/06/22 18:42:01 [server] handleRequest method=codex.respond
+2026/06/22 18:42:01 [server] handleRequest method=codex.respond
+2026/06/22 18:42:01 [server] handleRequest method=codex.respond
+2026/06/22 18:42:01 [server] handleRequest method=codex.respond
+2026/06/22 18:42:04 [agent:stderr] 2026-06-22T10:42:04.256057Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:04 [agent:stderr] Wall time: 2.8 seconds
+2026/06/22 18:42:04 [agent:stderr] Output:
+2026/06/22 18:42:04 [agent:stderr] rg: regex parse error:
+2026/06/22 18:42:04 [agent:stderr]     (?:gpt-5\.4|gpt-4o|gemini-2\.5-pro|Claude 3\.5 Sonnet|mimo-v|sonnet-4\.5|opus-4\.1|CURSOR_MODEL_OPTIONS|CLAUDE_MODEL_OPTIONS|private let models|setConfig\(\{ model|\)
+2026/06/22 18:42:04 [agent:stderr]     ^
+2026/06/22 18:42:04 [agent:stderr] error: unclosed group
+2026/06/22 18:42:04 [agent:stderr] 
+2026/06/22 18:42:14 [server] handleRequest method=codex.respond
+2026/06/22 18:42:14 [server] handleRequest method=codex.respond
+2026/06/22 18:42:14 [server] handleRequest method=codex.respond
+2026/06/22 18:42:14 [server] handleRequest method=codex.respond
+2026/06/22 18:42:14 [server] handleRequest method=codex.respond
+2026/06/22 18:42:15 [server] handleRequest method=codex.respond
+2026/06/22 18:42:16 [agent:stderr] 2026-06-22T10:42:16.397107Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:16 [agent:stderr] Wall time: 1.6 seconds
+2026/06/22 18:42:16 [agent:stderr] Output:
+2026/06/22 18:42:16 [agent:stderr] 
+2026/06/22 18:42:17 [agent:stderr] 2026-06-22T10:42:17.647014Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:17 [agent:stderr] Wall time: 2.8 seconds
+2026/06/22 18:42:17 [agent:stderr] Output:
+2026/06/22 18:42:17 [agent:stderr] 
+2026/06/22 18:42:18 [agent:stderr] 2026-06-22T10:42:18.888143Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:18 [agent:stderr] Wall time: 4 seconds
+2026/06/22 18:42:18 [agent:stderr] Output:
+2026/06/22 18:42:18 [agent:stderr] rg: regex parse error:
+2026/06/22 18:42:18 [agent:stderr]     (?:setConfig\(\{ model|model: get\(\)\.currentModel|\)
+2026/06/22 18:42:18 [agent:stderr]     ^
+2026/06/22 18:42:18 [agent:stderr] error: unclosed group
+2026/06/22 18:42:18 [agent:stderr] 
+2026/06/22 18:42:31 [server] handleRequest method=codex.respond
+2026/06/22 18:42:31 [server] handleRequest method=codex.respond
+2026/06/22 18:42:31 [server] handleRequest method=codex.respond
+2026/06/22 18:42:31 [server] handleRequest method=codex.respond
+2026/06/22 18:42:31 [server] handleRequest method=codex.respond
+2026/06/22 18:42:32 [server] handleRequest method=codex.respond
+2026/06/22 18:42:33 [agent:stderr] 2026-06-22T10:42:33.035140Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:33 [agent:stderr] Wall time: 1.6 seconds
+2026/06/22 18:42:33 [agent:stderr] Output:
+2026/06/22 18:42:33 [agent:stderr] 
+2026/06/22 18:42:35 [agent:stderr] 2026-06-22T10:42:35.501129Z ERROR codex_core::tools::router: error=Exit code: 1
+2026/06/22 18:42:35 [agent:stderr] Wall time: 3.7 seconds
+2026/06/22 18:42:35 [agent:stderr] Output:
+2026/06/22 18:42:35 [agent:stderr] rg: regex parse error:
+2026/06/22 18:42:35 [agent:stderr]     (?:\)
+2026/06/22 18:42:35 [agent:stderr]     ^
+2026/06/22 18:42:35 [agent:stderr] error: unclosed group
+2026/06/22 18:42:35 [agent:stderr] 
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:45 [server] handleRequest method=codex.respond
+2026/06/22 18:42:57 [server] handleRequest method=codex.respond
+2026/06/22 18:42:57 [server] handleRequest method=codex.respond
+2026/06/22 18:55:41 [server] handleRequest method=codex.turnStart
+2026/06/22 18:55:41 [agent] SendContext method=turn/start
+2026/06/22 18:55:41 [agent] SendContext method=turn/start returned
+2026/06/22 18:56:00 [server] handleRequest method=codex.respond
+2026/06/22 18:56:00 [server] handleRequest method=codex.respond
+2026/06/22 18:56:01 [server] handleRequest method=codex.respond
+2026/06/22 18:56:01 [server] handleRequest method=codex.respond
+2026/06/22 18:56:09 [server] handleRequest method=codex.respond
+2026/06/22 18:56:09 [server] handleRequest method=codex.respond
+2026/06/22 18:56:20 [server] handleRequest method=codex.respond
+2026/06/22 18:56:20 [server] handleRequest method=codex.respond
+2026/06/22 18:56:26 [server] handleRequest method=codex.respond
+2026/06/22 18:56:26 [server] handleRequest method=codex.respond
+2026/06/22 18:56:32 [server] handleRequest method=codex.respond
+2026/06/22 18:56:33 [server] handleRequest method=codex.respond
+2026/06/22 18:56:38 [server] handleRequest method=codex.respond
+2026/06/22 18:56:38 [server] handleRequest method=codex.respond
+2026/06/22 18:56:46 [server] handleRequest method=codex.respond
+2026/06/22 18:56:46 [server] handleRequest method=codex.respond
+2026/06/22 18:56:55 [server] handleRequest method=codex.respond
+2026/06/22 18:56:55 [server] handleRequest method=codex.respond
+2026/06/22 18:57:01 [server] handleRequest method=codex.respond
+2026/06/22 18:57:01 [server] handleRequest method=codex.respond
+2026/06/22 18:57:10 [server] handleRequest method=codex.respond
+2026/06/22 18:57:10 [server] handleRequest method=codex.respond
+2026/06/22 18:57:14 [server] handleRequest method=client.hello
+2026/06/22 18:57:17 [server] handleRequest method=fs.browse
+2026/06/22 18:57:23 [server] handleRequest method=codex.respond
+2026/06/22 18:57:23 [server] handleRequest method=codex.respond
+2026/06/22 18:57:24 [server] handleRequest method=codex.respond
+2026/06/22 18:57:24 [server] handleRequest method=codex.respond
+2026/06/22 18:57:31 [server] handleRequest method=codex.respond
+2026/06/22 18:57:31 [server] handleRequest method=codex.respond
+2026/06/22 18:57:38 [server] handleRequest method=codex.respond
+2026/06/22 18:57:38 [server] handleRequest method=codex.respond
+2026/06/22 18:57:47 [server] handleRequest method=codex.respond
+2026/06/22 18:57:47 [server] handleRequest method=codex.respond
+2026/06/22 18:57:48 [server] handleRequest method=codex.respond
+2026/06/22 18:57:48 [server] handleRequest method=codex.respond
+2026/06/22 18:57:48 [server] handleRequest method=codex.respond
+2026/06/22 18:57:48 [server] handleRequest method=codex.respond
+2026/06/22 18:58:03 [server] handleRequest method=codex.respond
+2026/06/22 18:58:03 [server] handleRequest method=codex.respond
+2026/06/22 18:58:03 [server] handleRequest method=codex.respond
+2026/06/22 18:58:03 [server] handleRequest method=codex.respond
+2026/06/22 18:59:03 [server] handleRequest method=codex.threadList
+2026/06/22 18:59:03 [agent] SendContext method=thread/list
+2026/06/22 18:59:03 [agent] SendContext method=thread/list returned
+2026/06/22 19:02:40 [server] handleRequest method=client.hello
+2026/06/22 19:02:47 [server] handleRequest method=client.hello
+2026/06/22 19:02:49 [server] handleRequest method=fs.browse

@@ -102,8 +102,8 @@ func NewClaudeBridge() *ClaudeBridge {
 		Env:         []string{"TERM=dumb"},
 		VersionArgs: []string{"--version"},
 		Capabilities: AcpCapabilities{
-			CanSetModel: false,
-			CanSetMode:  false,
+			CanSetModel: true,
+			CanSetMode:  true,
 		},
 		// We handle permission requests ourselves via OnPermissionRequest
 		// (auto-approving for bypass/dontAsk modes, forwarding to the iOS
@@ -315,6 +315,53 @@ func canonicalClaudeModel(value string) string {
 	return value
 }
 
+// effectiveModel resolves the model to surface to the UI: the user's explicit
+// selection when set, otherwise the model the ACP agent reported as current in
+// its latest session response (so the picker highlights the active model even
+// before the user picks one).
+func (c *ClaudeBridge) effectiveModel(selected string) string {
+	if selected != "" && selected != "default" {
+		return selected
+	}
+	if id := c.agent.CurrentModelID(); id != "" {
+		return id
+	}
+	return canonicalClaudeModel(selected)
+}
+
+// effectiveMode resolves the permission mode to surface to the UI: the user's
+// explicit selection when set, otherwise the mode the ACP agent reported as
+// current in its latest session response.
+func (c *ClaudeBridge) effectiveMode(selected string) string {
+	if selected != "" && selected != "default" {
+		return selected
+	}
+	if id := c.agent.CurrentModeID(); id != "" {
+		return id
+	}
+	return canonicalClaudePermissionMode(selected)
+}
+
+// ListModes returns the permission modes advertised by the ACP agent, ensuring
+// the current session is loaded first so the cache is populated (mirrors
+// ListModels).
+func (c *ClaudeBridge) ListModes() ([]AgentModelOption, error) {
+	c.mu.Lock()
+	sessionID := c.currentSession
+	cwd := c.cwd
+	c.mu.Unlock()
+	if sessionID != "" {
+		if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
+			return nil, err
+		}
+	} else if !c.agent.IsRunning() {
+		if err := c.Start(cwd); err != nil {
+			return nil, err
+		}
+	}
+	return c.agent.ListModes(), nil
+}
+
 func canonicalClaudeEffort(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -331,20 +378,90 @@ func canonicalClaudePermissionMode(value string) string {
 	return value
 }
 
-// SetConfig stores the desired Claude config/policy. These values are owned by
-// the daemon/UI and are not assumed to map to live ACP session mutations.
+// SetConfig stores the desired Claude config/policy. Model and effort are
+// daemon/UI-owned preferences, but a permission-mode change is pushed to the
+// live ACP session via session/set_mode so plan/acceptEdits actually take
+// effect in claude-code-acp (not just the daemon's auto-approve broker).
 func (c *ClaudeBridge) SetConfig(patch ClaudeConfigPatch) {
 	c.mu.Lock()
-	defer c.mu.Unlock()
 	if patch.Model != nil {
 		c.selectedModel = canonicalClaudeModel(*patch.Model)
 	}
 	if patch.Effort != nil {
 		c.selectedEffort = canonicalClaudeEffort(*patch.Effort)
 	}
+	modeChanged := false
 	if patch.PermissionMode != nil {
-		c.selectedMode = canonicalClaudePermissionMode(*patch.PermissionMode)
+		newMode := canonicalClaudePermissionMode(*patch.PermissionMode)
+		modeChanged = newMode != c.selectedMode
+		c.selectedMode = newMode
 	}
+	sid := c.currentSession
+	mode := c.selectedMode
+	cwd := c.cwd
+	c.mu.Unlock()
+
+	if modeChanged && sid != "" && c.agent.Capabilities().CanSetMode {
+		if err := c.ensureAgentSessionLoaded(sid, cwd); err != nil {
+			log.Printf("[claude] set_mode ensureLoaded failed: %v", err)
+			return
+		}
+		if err := c.agent.SetMode(sid, mode); err != nil {
+			log.Printf("[claude] set_mode(%s) failed: %v", mode, err)
+			return
+		}
+		c.mu.Lock()
+		c.sessionMode = mode
+		c.mu.Unlock()
+	}
+}
+
+// ListModels returns the models advertised by the ACP agent. Because the agent
+// only reports models in its session/new and session/load responses, we make
+// sure the current session is loaded first so the cache is populated.
+func (c *ClaudeBridge) ListModels() ([]AgentModelOption, error) {
+	c.mu.Lock()
+	sessionID := c.currentSession
+	cwd := c.cwd
+	c.mu.Unlock()
+	if sessionID != "" {
+		if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
+			return nil, err
+		}
+	} else if !c.agent.IsRunning() {
+		if err := c.Start(cwd); err != nil {
+			return nil, err
+		}
+	}
+	return c.agent.ListModels()
+}
+
+func (c *ClaudeBridge) SetModel(model string) error {
+	model = canonicalClaudeModel(model)
+	if model == "" {
+		return fmt.Errorf("model is required")
+	}
+	c.mu.Lock()
+	sessionID := c.currentSession
+	cwd := c.cwd
+	c.mu.Unlock()
+	if sessionID == "" {
+		return fmt.Errorf("no active Claude session to set model")
+	}
+	if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
+		return err
+	}
+	c.agentMu.Lock()
+	err := c.agent.SetModel(sessionID, model)
+	c.agentMu.Unlock()
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.selectedModel = model
+	c.sessionModel = model
+	c.mu.Unlock()
+	return nil
 }
 
 // Prompt sends a user turn to the active session. If no session is open,
@@ -429,8 +546,21 @@ func (c *ClaudeBridge) NewSession(cwd string) (string, error) {
 		return "", fmt.Errorf("session/new returned no sessionId")
 	}
 
+	selectedModel = c.effectiveModel(selectedModel)
+
+	// Honor the user's permission-mode preference on the fresh session so
+	// plan/acceptEdits/etc. apply from the first turn.
+	if selectedMode != "" && selectedMode != "default" && c.agent.Capabilities().CanSetMode {
+		if err := c.agent.SetMode(newSid, selectedMode); err != nil {
+			log.Printf("[claude] new session set_mode(%s) failed: %v", selectedMode, err)
+		}
+	}
+	selectedMode = c.effectiveMode(selectedMode)
+
 	c.mu.Lock()
 	c.currentSession = newSid
+	c.selectedModel = selectedModel
+	c.selectedMode = selectedMode
 	c.sessionModel = selectedModel
 	c.sessionMode = selectedMode
 	c.mu.Unlock()
@@ -443,12 +573,21 @@ func (c *ClaudeBridge) NewSession(cwd string) (string, error) {
 			"effort":         selectedEffort,
 			"permissionMode": selectedMode,
 		},
-		"capabilities":   c.Capabilities(),
-		"model":          selectedModel,
-		"effort":         selectedEffort,
-		"permissionMode": selectedMode,
+		"capabilities":    c.Capabilities(),
+		"model":           selectedModel,
+		"effort":          selectedEffort,
+		"permissionMode":  selectedMode,
+		"availableModes":  c.agent.ListModes(),
+		"availableModels": agentModelList(c.agent),
 	})
 	return newSid, nil
+}
+
+// agentModelList is a small helper so init/taskStatus payloads can carry the
+// captured model options (ListModels never errors).
+func agentModelList(a *AcpAgent) []AgentModelOption {
+	models, _ := a.ListModels()
+	return models
 }
 
 // LoadSession resumes a session by ID. This is the single canonical load path:
@@ -495,11 +634,26 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	if mode, _ := session["permissionMode"].(string); mode != "" {
 		c.sessionMode = mode
 	}
-	selectedModel := canonicalClaudeModel(c.selectedModel)
+	selectedModel := c.effectiveModel(c.selectedModel)
 	selectedEffort := canonicalClaudeEffort(c.selectedEffort)
 	selectedMode := canonicalClaudePermissionMode(c.selectedMode)
+	c.selectedModel = selectedModel
 	c.mu.Unlock()
 
+	// Re-apply the user's permission-mode preference to the resumed session.
+	if selectedMode != "" && selectedMode != "default" && c.agent.Capabilities().CanSetMode {
+		if err := c.agent.SetMode(sessionId, selectedMode); err != nil {
+			log.Printf("[claude] load session set_mode(%s) failed: %v", selectedMode, err)
+		}
+	}
+	selectedMode = c.effectiveMode(selectedMode)
+	c.mu.Lock()
+	c.selectedMode = selectedMode
+	c.sessionMode = selectedMode
+	c.mu.Unlock()
+
+	availableModes := c.agent.ListModes()
+	availableModels := agentModelList(c.agent)
 	c.emit("init", map[string]interface{}{
 		"sessionId": sessionId,
 		"cwd":       cwd,
@@ -508,10 +662,12 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 			"effort":         selectedEffort,
 			"permissionMode": selectedMode,
 		},
-		"capabilities":   c.Capabilities(),
-		"model":          selectedModel,
-		"effort":         selectedEffort,
-		"permissionMode": selectedMode,
+		"capabilities":    c.Capabilities(),
+		"model":           selectedModel,
+		"effort":          selectedEffort,
+		"permissionMode":  selectedMode,
+		"availableModes":  availableModes,
+		"availableModels": availableModels,
 	})
 
 	return map[string]interface{}{
@@ -523,8 +679,10 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 			"effort":         selectedEffort,
 			"permissionMode": selectedMode,
 		},
-		"capabilities": c.Capabilities(),
-		"agentLoaded":  c.agent.IsSessionLoaded(sessionId),
+		"capabilities":    c.Capabilities(),
+		"availableModes":  availableModes,
+		"availableModels": availableModels,
+		"agentLoaded":     c.agent.IsSessionLoaded(sessionId),
 	}, nil
 }
 
@@ -655,8 +813,10 @@ func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 		"model":          config["model"],
 		"effort":         config["effort"],
 		"permissionMode": config["permissionMode"],
-		"sessionModel":   c.sessionModel,
-		"sessionMode":    c.sessionMode,
+		"sessionModel":    c.sessionModel,
+		"sessionMode":     c.sessionMode,
+		"availableModes":  c.agent.ListModes(),
+		"availableModels": agentModelList(c.agent),
 	}
 }
 

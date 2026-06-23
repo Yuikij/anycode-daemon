@@ -82,7 +82,9 @@
     { "name": "codex.configWrite", "group": "codex", "clients": ["web", "ios"], "summary": "Write a Codex config key.", "params": [
       { "name": "keyPath", "type": "string" },
       { "name": "value", "type": "any" },
-      { "name": "mergeStrategy", "type": "string" }
+      { "name": "mergeStrategy", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
     ] },
     { "name": "codex.configRead", "group": "codex", "clients": ["web", "ios"], "dynamic": true, "passthrough": true, "summary": "Read Codex config (dynamic app-server passthrough: config/read)." },
     { "name": "codex.respond", "group": "codex", "clients": ["web", "ios"], "summary": "Respond to a Codex server request (e.g. approval).", "params": [
@@ -146,16 +148,27 @@
       { "name": "projectId", "type": "string" },
       { "name": "expectedProjectGeneration", "type": "number" }
     ] },
-    { "name": "claude.setConfig", "group": "claude", "clients": ["web", "ios"], "summary": "Update Claude config (model/effort/permission mode).", "params": [
-      { "name": "model", "type": "string" },
+    { "name": "claude.setConfig", "group": "claude", "clients": ["web", "ios"], "summary": "Update Claude config (effort/permission mode).", "params": [
       { "name": "effort", "type": "string" },
       { "name": "permissionMode", "type": "string" }
+    ] },
+    { "name": "claude.modelList", "group": "claude", "clients": ["web", "ios"], "summary": "List Claude models from the backend agent.", "params": [
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+    { "name": "claude.modeList", "group": "claude", "clients": ["web", "ios"], "summary": "List Claude permission modes from the backend agent.", "params": [
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+    { "name": "claude.setModel", "group": "claude", "clients": ["web", "ios"], "summary": "Set the active Claude session model through the backend agent.", "params": [
+      { "name": "model", "type": "string", "required": true }
     ] },
     { "name": "claude.prompt", "group": "claude", "clients": ["web", "ios"], "summary": "Send a prompt to Claude.", "params": [
       { "name": "prompt", "type": "string" },
       { "name": "text", "type": "string" },
       { "name": "images", "type": "string[]" },
-      { "name": "model", "type": "string" },
       { "name": "effort", "type": "string" },
       { "name": "permissionMode", "type": "string" },
       { "name": "cwd", "type": "string" },
@@ -193,15 +206,21 @@
       { "name": "projectId", "type": "string" },
       { "name": "expectedProjectGeneration", "type": "number" }
     ] },
-    { "name": "cursor.setConfig", "group": "cursor", "clients": ["web", "ios"], "summary": "Update Cursor config (model/mode).", "params": [
-      { "name": "model", "type": "string" },
+    { "name": "cursor.setConfig", "group": "cursor", "clients": ["web", "ios"], "summary": "Update Cursor config (mode).", "params": [
       { "name": "mode", "type": "string" }
+    ] },
+    { "name": "cursor.modelList", "group": "cursor", "clients": ["web", "ios"], "summary": "List Cursor models from the backend agent.", "params": [
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+    { "name": "cursor.setModel", "group": "cursor", "clients": ["web", "ios"], "summary": "Set the active Cursor session model through the backend agent.", "params": [
+      { "name": "model", "type": "string", "required": true }
     ] },
     { "name": "cursor.prompt", "group": "cursor", "clients": ["web", "ios"], "summary": "Send a prompt to Cursor.", "params": [
       { "name": "prompt", "type": "string" },
       { "name": "text", "type": "string" },
       { "name": "images", "type": "string[]" },
-      { "name": "model", "type": "string" },
       { "name": "mode", "type": "string" },
       { "name": "cwd", "type": "string" },
       { "name": "projectId", "type": "string" },
@@ -211,6 +230,57 @@
     { "name": "cursor.stop", "group": "cursor", "clients": ["web", "ios"], "summary": "Stop the Cursor agent.", "params": [] },
     { "name": "cursor.taskStatus", "group": "cursor", "clients": ["web", "ios"], "summary": "Cursor authoritative task snapshot (also delivered via client.hello).", "params": [] },
     { "name": "cursor.permission/respond", "group": "cursor", "clients": ["web", "ios"], "summary": "Respond to a Cursor permission request.", "params": [
+      { "name": "requestId", "type": "string", "required": true },
+      { "name": "optionId", "type": "string" },
+      { "name": "cancelled", "type": "boolean" }
+    ] },
+
+    { "name": "trae.start", "group": "trae", "clients": ["web", "ios"], "summary": "Start/attach the Trae agent (traecli acp serve).", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "trae.status", "group": "trae", "clients": ["ios"], "summary": "Poll Trae agent status.", "params": [] },
+    { "name": "trae.sessionList", "group": "trae", "clients": ["web", "ios"], "summary": "List Trae sessions (best-effort; Trae CLI has no non-interactive history).", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "trae.loadSession", "group": "trae", "clients": ["web", "ios"], "summary": "Load an existing Trae session.", "params": [
+      { "name": "sessionId", "type": "string", "required": true },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "trae.newSession", "group": "trae", "clients": ["web", "ios"], "summary": "Create a new Trae session.", "params": [
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "trae.setConfig", "group": "trae", "clients": ["web", "ios"], "summary": "Update Trae config (mode).", "params": [
+      { "name": "mode", "type": "string" }
+    ] },
+    { "name": "trae.modelList", "group": "trae", "clients": ["web", "ios"], "summary": "List Trae models from the backend agent.", "params": [
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" },
+      { "name": "cwd", "type": "string" }
+    ] },
+    { "name": "trae.setModel", "group": "trae", "clients": ["web", "ios"], "summary": "Set the active Trae session model through the backend agent.", "params": [
+      { "name": "model", "type": "string", "required": true }
+    ] },
+    { "name": "trae.prompt", "group": "trae", "clients": ["web", "ios"], "summary": "Send a prompt to Trae.", "params": [
+      { "name": "prompt", "type": "string" },
+      { "name": "text", "type": "string" },
+      { "name": "images", "type": "string[]" },
+      { "name": "mode", "type": "string" },
+      { "name": "cwd", "type": "string" },
+      { "name": "projectId", "type": "string" },
+      { "name": "expectedProjectGeneration", "type": "number" }
+    ] },
+    { "name": "trae.cancel", "group": "trae", "clients": ["web", "ios"], "summary": "Cancel the active Trae turn.", "params": [] },
+    { "name": "trae.stop", "group": "trae", "clients": ["web", "ios"], "summary": "Stop the Trae agent.", "params": [] },
+    { "name": "trae.taskStatus", "group": "trae", "clients": ["web", "ios"], "summary": "Trae authoritative task snapshot (also delivered via client.hello).", "params": [] },
+    { "name": "trae.permission/respond", "group": "trae", "clients": ["web", "ios"], "summary": "Respond to a Trae permission request.", "params": [
       { "name": "requestId", "type": "string", "required": true },
       { "name": "optionId", "type": "string" },
       { "name": "cancelled", "type": "boolean" }

@@ -188,16 +188,12 @@ func TestHandleFileChangesRejectsPathsOutsideProjectRoot(t *testing.T) {
 
 func TestBuildClaudeConfigPatchUsesCanonicalDefaults(t *testing.T) {
 	patch := buildClaudeConfigPatch(map[string]interface{}{
-		"model":          "",
 		"effort":         "",
 		"permissionMode": nil,
 	})
 	bridge := NewClaudeBridge()
 	bridge.SetConfig(patch)
 	config := bridge.ConfigSnapshot()
-	if config["model"] != "default" {
-		t.Fatalf("expected default model, got %#v", config["model"])
-	}
 	if config["effort"] != "medium" {
 		t.Fatalf("expected medium effort, got %#v", config["effort"])
 	}
@@ -1002,8 +998,6 @@ func TestGitStatusRejectsStaleProjectGeneration(t *testing.T) {
 	}
 }
 
-
-
 func TestClaudeNewSessionRejectsStaleProjectGeneration(t *testing.T) {
 	rootA := t.TempDir()
 	rootB := t.TempDir()
@@ -1120,14 +1114,12 @@ func TestCodexDynamicRejectsStaleProjectGeneration(t *testing.T) {
 	}
 }
 
-
-
 func TestCodexThreadReadRejectsMismatchedProjectID(t *testing.T) {
 	root := t.TempDir()
 	server := newTestServer(t, root)
 
 	encodedParams, err := json.Marshal(map[string]interface{}{
-		"threadId": "thread-1",
+		"threadId":  "thread-1",
 		"projectId": filepath.Join(root, "other-project"),
 	})
 	if err != nil {
@@ -1241,4 +1233,3 @@ func TestProjectOpenRejectsOldAgentBindingsAndAcceptsNewBindings(t *testing.T) {
 		})
 	}
 }
-

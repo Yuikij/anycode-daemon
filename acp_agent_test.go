@@ -33,7 +33,7 @@ func TestAcpAgentSetModelUnsupportedByCapability(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected AcpUnsupportedMethodError, got %T", err)
 	}
-	if unsupported.Method != "session/setModel" {
+	if unsupported.Method != "session/set_model" {
 		t.Fatalf("unexpected method: %s", unsupported.Method)
 	}
 }
@@ -48,7 +48,7 @@ func TestAcpAgentSetModeUnsupportedByCapability(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected AcpUnsupportedMethodError, got %T", err)
 	}
-	if unsupported.Method != "session/setMode" {
+	if unsupported.Method != "session/set_mode" {
 		t.Fatalf("unexpected method: %s", unsupported.Method)
 	}
 }
@@ -81,6 +81,70 @@ func TestAcpAgentSessionUpdateNotification(t *testing.T) {
 	}
 	if gotParams["delta"] != true {
 		t.Fatalf("unexpected delta: %#v", gotParams["delta"])
+	}
+}
+
+func TestAcpAgentCaptureSessionModels(t *testing.T) {
+	agent := NewAcpAgent(AcpAgentConfig{ID: "test", Label: "Test", Command: "test"})
+
+	// Shape advertised by claude-code-acp / Cursor in session/new responses.
+	agent.captureSessionModels(map[string]interface{}{
+		"models": map[string]interface{}{
+			"availableModels": []interface{}{
+				map[string]interface{}{"modelId": "sonnet", "name": "Sonnet", "description": "Fast"},
+				map[string]interface{}{"modelId": "opus", "name": "Opus"},
+			},
+			"currentModelId": "opus",
+		},
+	})
+
+	models, err := agent.ListModels()
+	if err != nil {
+		t.Fatalf("ListModels error: %v", err)
+	}
+	if len(models) != 2 {
+		t.Fatalf("expected 2 models, got %d: %#v", len(models), models)
+	}
+	if models[0].ID != "sonnet" || models[0].Name != "Sonnet" || models[0].Description != "Fast" {
+		t.Fatalf("unexpected first model: %#v", models[0])
+	}
+	if models[1].ID != "opus" {
+		t.Fatalf("unexpected second model: %#v", models[1])
+	}
+	if agent.CurrentModelID() != "opus" {
+		t.Fatalf("expected current model opus, got %q", agent.CurrentModelID())
+	}
+
+	// A response without a models block must not clobber the cache.
+	agent.captureSessionModels(map[string]interface{}{"sessionId": "s1"})
+	if got, _ := agent.ListModels(); len(got) != 2 {
+		t.Fatalf("cache should be preserved, got %d models", len(got))
+	}
+}
+
+func TestAcpAgentCaptureSessionModes(t *testing.T) {
+	agent := NewAcpAgent(AcpAgentConfig{ID: "test", Label: "Test", Command: "test"})
+
+	// Shape advertised by claude-code-acp in session/new responses.
+	agent.captureSessionModels(map[string]interface{}{
+		"modes": map[string]interface{}{
+			"availableModes": []interface{}{
+				map[string]interface{}{"id": "default", "name": "Default", "description": "Ask"},
+				map[string]interface{}{"id": "plan", "name": "Plan Mode"},
+			},
+			"currentModeId": "plan",
+		},
+	})
+
+	modes := agent.ListModes()
+	if len(modes) != 2 {
+		t.Fatalf("expected 2 modes, got %d: %#v", len(modes), modes)
+	}
+	if modes[0].ID != "default" || modes[1].ID != "plan" {
+		t.Fatalf("unexpected modes: %#v", modes)
+	}
+	if agent.CurrentModeID() != "plan" {
+		t.Fatalf("expected current mode plan, got %q", agent.CurrentModeID())
 	}
 }
 

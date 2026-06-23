@@ -8,9 +8,37 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
+
+// agentEnvBlocklist names parent-process env vars that must never leak into a
+// spawned agent subprocess. CLAUDECODE makes Claude Code refuse to launch
+// ("cannot be launched inside another Claude Code session"), which breaks the
+// daemon whenever it is itself started from within a Claude Code session.
+var agentEnvBlocklist = map[string]bool{
+	"CLAUDECODE": true,
+}
+
+// buildAgentEnv returns the parent environment minus any blocklisted vars, with
+// the caller's overrides appended. cmd.Env is always set from this so agents get
+// a sanitized environment even when no overrides are provided.
+func buildAgentEnv(extra []string) []string {
+	parent := os.Environ()
+	out := make([]string, 0, len(parent)+len(extra))
+	for _, kv := range parent {
+		key := kv
+		if i := strings.IndexByte(kv, '='); i >= 0 {
+			key = kv[:i]
+		}
+		if agentEnvBlocklist[key] {
+			continue
+		}
+		out = append(out, kv)
+	}
+	return append(out, extra...)
+}
 
 // AgentBridge manages a CLI agent subprocess communicating via stdio JSON-RPC.
 // Designed to be reusable for Codex, Claude, Cursor, Copilot, etc.
@@ -72,9 +100,7 @@ func (b *AgentBridge) StartProcess(command string, args []string, cwd string, en
 
 	cmd := exec.Command(command, args...)
 	cmd.Dir = cwd
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), env...)
-	}
+	cmd.Env = buildAgentEnv(env)
 
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {

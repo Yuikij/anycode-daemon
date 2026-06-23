@@ -53,6 +53,7 @@ func (s *Server) switchProject(newRoot string) {
 	}
 	s.claude.SetCwd(newRoot)
 	s.cursor.SetCwd(newRoot)
+	s.trae.SetCwd(newRoot)
 	s.cron.Stop()
 	s.cron.Start(newRoot)
 	s.broadcastRecordedEvent("daemon", "project.changed", map[string]interface{}{
@@ -109,6 +110,9 @@ func (s *Server) initRoutes() {
 	s.routes["claude.sessionDelete"] = s.handleClaudeSessionDelete
 	s.routes["claude.sessionRename"] = s.handleClaudeSessionRename
 	s.routes["claude.setConfig"] = s.handleClaudeSetConfig
+	s.routes["claude.modelList"] = s.handleClaudeModelList
+	s.routes["claude.modeList"] = s.handleClaudeModeList
+	s.routes["claude.setModel"] = s.handleClaudeSetModel
 	s.routes["claude.prompt"] = s.handleClaudePrompt
 	s.routes["claude.cancel"] = s.handleClaudeCancel
 	s.routes["claude.stop"] = s.handleClaudeStop
@@ -120,11 +124,26 @@ func (s *Server) initRoutes() {
 	s.routes["cursor.loadSession"] = s.handleCursorLoadSession
 	s.routes["cursor.newSession"] = s.handleCursorNewSession
 	s.routes["cursor.setConfig"] = s.handleCursorSetConfig
+	s.routes["cursor.modelList"] = s.handleCursorModelList
+	s.routes["cursor.setModel"] = s.handleCursorSetModel
 	s.routes["cursor.prompt"] = s.handleCursorPrompt
 	s.routes["cursor.cancel"] = s.handleCursorCancel
 	s.routes["cursor.stop"] = s.handleCursorStop
 	s.routes["cursor.taskStatus"] = s.handleCursorTaskStatus
 	s.routes["cursor.permission/respond"] = s.handleCursorPermissionRespond
+	s.routes["trae.start"] = s.handleTraeStart
+	s.routes["trae.status"] = s.handleTraeStatus
+	s.routes["trae.sessionList"] = s.handleTraeSessionList
+	s.routes["trae.loadSession"] = s.handleTraeLoadSession
+	s.routes["trae.newSession"] = s.handleTraeNewSession
+	s.routes["trae.setConfig"] = s.handleTraeSetConfig
+	s.routes["trae.modelList"] = s.handleTraeModelList
+	s.routes["trae.setModel"] = s.handleTraeSetModel
+	s.routes["trae.prompt"] = s.handleTraePrompt
+	s.routes["trae.cancel"] = s.handleTraeCancel
+	s.routes["trae.stop"] = s.handleTraeStop
+	s.routes["trae.taskStatus"] = s.handleTraeTaskStatus
+	s.routes["trae.permission/respond"] = s.handleTraePermissionRespond
 	s.routes["cron.list"] = s.handleCronList
 	s.routes["cron.create"] = s.handleCronCreate
 	s.routes["cron.update"] = s.handleCronUpdate
@@ -135,6 +154,16 @@ func (s *Server) handleCodexDynamic(req RpcRequest, client *wsClient) (interface
 	params := getParams(req.Params)
 	rpcMethod := codexMethodMap(req.Method)
 	if params == nil {
+		// No params still needs the app-server running (e.g. codex.modelList is
+		// called with no arguments). Autostart with the daemon's current cwd.
+		if !s.codex.IsRunning() {
+			runtime := s.runtime.MustRuntime("codex")
+			if err := runtime.Start(""); err != nil {
+				log.Printf("[codex.autostart] error: %v", err)
+				return nil, err
+			}
+			log.Printf("[codex.autostart] success (no params)")
+		}
 		return s.codex.Send(rpcMethod, map[string]interface{}{})
 	}
 	normalizedParams, context, err := s.normalizeProjectScopedParams(params, false)
@@ -220,14 +249,6 @@ func codexCommand() string {
 
 func buildClaudeConfigPatch(params map[string]interface{}) ClaudeConfigPatch {
 	patch := ClaudeConfigPatch{}
-	if model, ok := getOptionalParamString(params, "model"); ok {
-		if model == nil {
-			value := "default"
-			patch.Model = &value
-		} else {
-			patch.Model = model
-		}
-	}
 	if effort, ok := getOptionalParamString(params, "effort"); ok {
 		if effort == nil {
 			value := "medium"

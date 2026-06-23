@@ -135,6 +135,72 @@ func (s *Server) handleClaudeSetConfig(req RpcRequest, client *wsClient) (interf
 
 }
 
+func (s *Server) handleClaudeModelList(req RpcRequest, client *wsClient) (interface{}, error) {
+	runtime := s.runtime.MustRuntime("claude")
+	p, err := decodeParams[claudeModelListParams](req)
+	if err != nil {
+		return nil, err
+	}
+	context, err := s.resolveScope(p.projectScope, true)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.IsRunning() {
+		if err := runtime.Start(context.cwd); err != nil {
+			return nil, err
+		}
+	} else {
+		runtime.SetCwd(context.cwd)
+	}
+	models, err := s.claude.ListModels()
+	if err != nil {
+		log.Printf("[claude] model/list failed: %v", err)
+		return map[string]interface{}{"ok": true, "data": []AgentModelOption{}}, nil
+	}
+	return map[string]interface{}{"ok": true, "data": models}, nil
+
+}
+
+func (s *Server) handleClaudeModeList(req RpcRequest, client *wsClient) (interface{}, error) {
+	runtime := s.runtime.MustRuntime("claude")
+	p, err := decodeParams[claudeModelListParams](req)
+	if err != nil {
+		return nil, err
+	}
+	context, err := s.resolveScope(p.projectScope, true)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.IsRunning() {
+		if err := runtime.Start(context.cwd); err != nil {
+			return nil, err
+		}
+	} else {
+		runtime.SetCwd(context.cwd)
+	}
+	modes, err := s.claude.ListModes()
+	if err != nil {
+		log.Printf("[claude] mode/list failed: %v", err)
+		return map[string]interface{}{"ok": true, "data": []AgentModelOption{}}, nil
+	}
+	return map[string]interface{}{"ok": true, "data": modes}, nil
+}
+
+func (s *Server) handleClaudeSetModel(req RpcRequest, client *wsClient) (interface{}, error) {
+	p, err := decodeParams[claudeSetModelParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.Model == "" {
+		return nil, fmt.Errorf("model is required")
+	}
+	if err := s.claude.SetModel(p.Model); err != nil {
+		return nil, err
+	}
+	return s.runtime.ConfigResponse("claude"), nil
+
+}
+
 func (s *Server) handleClaudePrompt(req RpcRequest, client *wsClient) (interface{}, error) {
 	runtime := s.runtime.MustRuntime("claude")
 	p, err := decodeParams[claudePromptParams](req)

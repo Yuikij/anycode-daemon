@@ -147,6 +147,14 @@ type claudeSessionRenameParams struct {
 	Title     string `json:"title"`
 }
 
+type claudeModelListParams struct {
+	projectScope
+}
+
+type claudeSetModelParams struct {
+	Model string `json:"model"`
+}
+
 type claudePromptParams struct {
 	projectScope
 	Prompt string   `json:"prompt"`
@@ -177,6 +185,14 @@ type cursorLoadSessionParams struct {
 	SessionID string `json:"sessionId"`
 }
 
+type cursorModelListParams struct {
+	projectScope
+}
+
+type cursorSetModelParams struct {
+	Model string `json:"model"`
+}
+
 type cursorPromptParams struct {
 	projectScope
 	Prompt string   `json:"prompt"`
@@ -190,3 +206,40 @@ type cursorPermissionRespondParams struct {
 	Cancelled bool   `json:"cancelled"`
 }
 
+type traeStartParams struct {
+	projectScope
+}
+
+type traeNewSessionParams struct {
+	projectScope
+}
+
+type traeSessionListParams struct {
+	projectScope
+}
+
+type traeLoadSessionParams struct {
+	projectScope
+	SessionID string `json:"sessionId"`
+}
+
+type traeModelListParams struct {
+	projectScope
+}
+
+type traeSetModelParams struct {
+	Model string `json:"model"`
+}
+
+type traePromptParams struct {
+	projectScope
+	Prompt string   `json:"prompt"`
+	Text   string   `json:"text"`
+	Images []string `json:"images"`
+}
+
+type traePermissionRespondParams struct {
+	RequestID string `json:"requestId"`
+	OptionID  string `json:"optionId"`
+	Cancelled bool   `json:"cancelled"`
+}

@@ -54,11 +54,17 @@ func cursorCommand() string {
 }
 
 func canonicalCursorModel(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return "default"
+	return strings.TrimSpace(value)
+}
+
+// effectiveModel resolves the model to surface to the UI: the user's explicit
+// selection when set, otherwise the model the Cursor ACP agent reported as
+// current in its latest session response.
+func (c *CursorBridge) effectiveModel(selected string) string {
+	if selected != "" {
+		return selected
 	}
-	return value
+	return c.agent.CurrentModelID()
 }
 
 func canonicalCursorMode(value string) string {
@@ -74,8 +80,7 @@ func canonicalCursorMode(value string) string {
 
 func NewCursorBridge() *CursorBridge {
 	c := &CursorBridge{
-		selectedModel: "default",
-		selectedMode:  "agent",
+		selectedMode: "agent",
 	}
 	c.agent = NewAcpAgent(AcpAgentConfig{
 		ID:          "cursor",
@@ -241,29 +246,66 @@ func (c *CursorBridge) Cancel() {
 	}
 }
 
-// SetConfig stores the desired model/mode. When a session is live and the agent
-// advertises the capability, the change is also pushed to the running ACP
-// session (best-effort) so it takes effect immediately.
+// ListModels returns the models advertised by the Cursor ACP agent. Cursor (like
+// claude-code-acp) only reports models in its session/new and session/load
+// responses, so ensure the current session is loaded first to populate the cache.
+func (c *CursorBridge) ListModels() ([]AgentModelOption, error) {
+	c.mu.Lock()
+	sessionID := c.currentSession
+	cwd := c.cwd
+	c.mu.Unlock()
+	if sessionID != "" {
+		if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
+			return nil, err
+		}
+	} else if !c.agent.IsRunning() {
+		if err := c.Start(cwd); err != nil {
+			return nil, err
+		}
+	}
+	return c.agent.ListModels()
+}
+
+func (c *CursorBridge) SetModel(model string) error {
+	model = canonicalCursorModel(model)
+	if model == "" {
+		return fmt.Errorf("model is required")
+	}
+	c.mu.Lock()
+	sid := c.currentSession
+	cwd := c.cwd
+	c.mu.Unlock()
+	if sid == "" {
+		return fmt.Errorf("no active Cursor session to set model")
+	}
+	if err := c.ensureAgentSessionLoaded(sid, cwd); err != nil {
+		return err
+	}
+	c.agentMu.Lock()
+	err := c.agent.SetModel(sid, model)
+	c.agentMu.Unlock()
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.selectedModel = model
+	c.mu.Unlock()
+	return nil
+}
+
+// SetConfig stores the desired mode. Model changes must go through SetModel so
+// the UI only reports success after the backend ACP session accepts the change.
 func (c *CursorBridge) SetConfig(model, mode *string) {
 	c.mu.Lock()
-	if model != nil {
-		c.selectedModel = canonicalCursorModel(*model)
-	}
 	if mode != nil {
 		c.selectedMode = canonicalCursorMode(*mode)
 	}
 	sid := c.currentSession
-	selectedModel := c.selectedModel
 	selectedMode := c.selectedMode
 	c.mu.Unlock()
 
 	if sid == "" {
 		return
-	}
-	if model != nil && selectedModel != "default" {
-		if err := c.agent.SetModel(sid, selectedModel); err != nil {
-			log.Printf("[cursor] setModel failed: %v", err)
-		}
 	}
 	if mode != nil {
 		if err := c.agent.SetMode(sid, selectedMode); err != nil {
@@ -353,8 +395,11 @@ func (c *CursorBridge) NewSession(cwd string) (string, error) {
 		return "", fmt.Errorf("session/new returned no sessionId")
 	}
 
+	selectedModel = c.effectiveModel(selectedModel)
+
 	c.mu.Lock()
 	c.currentSession = newSid
+	c.selectedModel = selectedModel
 	c.mu.Unlock()
 
 	c.emit("init", map[string]interface{}{
@@ -364,9 +409,10 @@ func (c *CursorBridge) NewSession(cwd string) (string, error) {
 			"model": selectedModel,
 			"mode":  selectedMode,
 		},
-		"capabilities": c.Capabilities(),
-		"model":        selectedModel,
-		"mode":         selectedMode,
+		"capabilities":    c.Capabilities(),
+		"model":           selectedModel,
+		"mode":            selectedMode,
+		"availableModels": agentModelList(c.agent),
 	})
 	return newSid, nil
 }
@@ -401,10 +447,12 @@ func (c *CursorBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	if cwd != "" {
 		c.cwd = cwd
 	}
-	selectedModel := canonicalCursorModel(c.selectedModel)
+	selectedModel := c.effectiveModel(canonicalCursorModel(c.selectedModel))
 	selectedMode := canonicalCursorMode(c.selectedMode)
+	c.selectedModel = selectedModel
 	c.mu.Unlock()
 
+	availableModels := agentModelList(c.agent)
 	c.emit("init", map[string]interface{}{
 		"sessionId": sessionId,
 		"cwd":       cwd,
@@ -412,9 +460,10 @@ func (c *CursorBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 			"model": selectedModel,
 			"mode":  selectedMode,
 		},
-		"capabilities": c.Capabilities(),
-		"model":        selectedModel,
-		"mode":         selectedMode,
+		"capabilities":    c.Capabilities(),
+		"model":           selectedModel,
+		"mode":            selectedMode,
+		"availableModels": availableModels,
 	})
 
 	return map[string]interface{}{
@@ -428,8 +477,9 @@ func (c *CursorBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 			"model": selectedModel,
 			"mode":  selectedMode,
 		},
-		"capabilities": c.Capabilities(),
-		"agentLoaded":  c.agent.IsSessionLoaded(sessionId),
+		"capabilities":    c.Capabilities(),
+		"availableModels": availableModels,
+		"agentLoaded":     c.agent.IsSessionLoaded(sessionId),
 	}, nil
 }
 
@@ -486,9 +536,10 @@ func (c *CursorBridge) TaskStatus() map[string]interface{} {
 		"pendingPerms": pendingPermList,
 		"cwd":          c.cwd,
 		"config":       config,
-		"capabilities": capabilities,
-		"model":        config["model"],
-		"mode":         config["mode"],
+		"capabilities":    capabilities,
+		"model":           config["model"],
+		"mode":            config["mode"],
+		"availableModels": agentModelList(c.agent),
 	}
 }
 

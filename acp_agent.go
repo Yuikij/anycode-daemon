@@ -55,6 +55,12 @@ type acpSetModelParams struct {
 	ModelID   string `json:"modelId"`
 }
 
+type AgentModelOption struct {
+	ID          string `json:"id"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
 type AcpUnsupportedMethodError struct {
 	Method string
 }
@@ -83,6 +89,16 @@ type AcpAgent struct {
 	cwd           string
 	avail         bool
 	loadedSession string
+
+	// Model and permission-mode options advertised by the agent in its
+	// session/new and session/load responses. ACP servers (claude-code-acp,
+	// Cursor) report models under `models: {availableModels, currentModelId}`
+	// and modes under `modes: {availableModes, currentModeId}` rather than via
+	// standalone list methods, so this cache is the only place we learn them.
+	availableModels []AgentModelOption
+	currentModelID  string
+	availableModes  []AgentModelOption
+	currentModeID   string
 
 	OnNotification func(method string, params interface{})
 	OnRequest      func(id interface{}, method string, params interface{})
@@ -222,6 +238,7 @@ func (a *AcpAgent) NewSession(cwd string) (map[string]interface{}, error) {
 		if sessionId, _ := result["sessionId"].(string); sessionId != "" {
 			a.markLoadedSession(sessionId)
 		}
+		a.captureSessionModels(result)
 	}
 	return result, err
 }
@@ -235,8 +252,50 @@ func (a *AcpAgent) LoadSession(sessionId, cwd string) (map[string]interface{}, e
 	result := normalizeMapResult(raw)
 	if err == nil {
 		a.markLoadedSession(sessionId)
+		a.captureSessionModels(result)
 	}
 	return result, err
+}
+
+// captureSessionModels records the model and permission-mode options
+// advertised in a session/new or session/load response under
+// `models: {availableModels, currentModelId}` and `modes: {availableModes,
+// currentModeId}`.
+func (a *AcpAgent) captureSessionModels(result map[string]interface{}) {
+	if models, ok := result["models"].(map[string]interface{}); ok {
+		options := normalizeModelOptions(firstPresent(models, "availableModels", "available", "models"))
+		current := firstString(models, "currentModelId", "currentModelID", "current")
+		a.mu.Lock()
+		if len(options) > 0 {
+			a.availableModels = options
+		}
+		if current != "" {
+			a.currentModelID = current
+		}
+		a.mu.Unlock()
+	}
+	if modes, ok := result["modes"].(map[string]interface{}); ok {
+		options := normalizeModelOptions(firstPresent(modes, "availableModes", "available", "modes"))
+		current := firstString(modes, "currentModeId", "currentModeID", "current")
+		a.mu.Lock()
+		if len(options) > 0 {
+			a.availableModes = options
+		}
+		if current != "" {
+			a.currentModeID = current
+		}
+		a.mu.Unlock()
+	}
+}
+
+// firstPresent returns the value of the first key that exists in obj.
+func firstPresent(obj map[string]interface{}, keys ...string) interface{} {
+	for _, key := range keys {
+		if v, exists := obj[key]; exists {
+			return v
+		}
+	}
+	return nil
 }
 
 func (a *AcpAgent) IsSessionLoaded(sessionId string) bool {
@@ -319,25 +378,74 @@ func (a *AcpAgent) Cancel(sessionId string) error {
 
 func (a *AcpAgent) SetMode(sessionId, modeId string) error {
 	if !a.config.Capabilities.CanSetMode {
-		return &AcpUnsupportedMethodError{Method: "session/setMode"}
+		return &AcpUnsupportedMethodError{Method: "session/set_mode"}
 	}
-	_, err := a.bridge.Send("session/setMode", acpSetModeParams{SessionID: sessionId, ModeID: modeId})
+	// The ACP spec wire method is the snake_case `session/set_mode`; older
+	// bridges used the camelCase `session/setMode`, so fall back to it.
+	params := acpSetModeParams{SessionID: sessionId, ModeID: modeId}
+	_, err := a.bridge.Send("session/set_mode", params)
+	if err == nil {
+		return nil
+	}
+	if _, fallbackErr := a.bridge.Send("session/setMode", params); fallbackErr == nil {
+		return nil
+	}
 	return err
 }
 
 func (a *AcpAgent) SetModel(sessionId, modelId string) error {
 	if !a.config.Capabilities.CanSetModel {
-		return &AcpUnsupportedMethodError{Method: "session/setModel"}
+		return &AcpUnsupportedMethodError{Method: "session/set_model"}
 	}
-	_, err := a.bridge.Send("unstable/session/setModel", acpSetModelParams{SessionID: sessionId, ModelID: modelId})
-	if err == nil {
-		return nil
+	// The ACP SDK exposes model selection as the (unstable) snake_case
+	// `session/set_model`. Fall back to the older camelCase variants for
+	// bridges that predate the rename.
+	params := acpSetModelParams{SessionID: sessionId, ModelID: modelId}
+	var firstErr error
+	for _, method := range []string{"session/set_model", "unstable/session/setModel", "session/setModel"} {
+		_, err := a.bridge.Send(method, params)
+		if err == nil {
+			return nil
+		}
+		if firstErr == nil {
+			firstErr = err
+		}
 	}
-	_, fallbackErr := a.bridge.Send("session/setModel", acpSetModelParams{SessionID: sessionId, ModelID: modelId})
-	if fallbackErr == nil {
-		return nil
-	}
-	return err
+	return firstErr
+}
+
+// ListModels returns the model options captured from the most recent
+// session/new or session/load response. ACP agents advertise their models
+// there, not via a standalone `model/list` method, so callers must have an
+// active session (see the bridge ListModels wrappers) for this to be populated.
+func (a *AcpAgent) ListModels() ([]AgentModelOption, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	models := make([]AgentModelOption, len(a.availableModels))
+	copy(models, a.availableModels)
+	return models, nil
+}
+
+func (a *AcpAgent) CurrentModelID() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.currentModelID
+}
+
+// ListModes returns the permission-mode options captured from the latest
+// session response (mirrors ListModels).
+func (a *AcpAgent) ListModes() []AgentModelOption {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	modes := make([]AgentModelOption, len(a.availableModes))
+	copy(modes, a.availableModes)
+	return modes
+}
+
+func (a *AcpAgent) CurrentModeID() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.currentModeID
 }
 
 func (a *AcpAgent) Respond(id interface{}, result interface{}) error {
@@ -358,6 +466,40 @@ func normalizeMapResult(raw interface{}) map[string]interface{} {
 		}
 	}
 	return result
+}
+
+func normalizeModelOptions(raw interface{}) []AgentModelOption {
+	var items interface{} = raw
+	if m, ok := raw.(map[string]interface{}); ok {
+		for _, key := range []string{"data", "models", "availableModels"} {
+			if value, exists := m[key]; exists {
+				items = value
+				break
+			}
+		}
+	}
+	arr, ok := items.([]interface{})
+	if !ok {
+		return nil
+	}
+	models := make([]AgentModelOption, 0, len(arr))
+	for _, item := range arr {
+		switch v := item.(type) {
+		case string:
+			if v != "" {
+				models = append(models, AgentModelOption{ID: v, Name: v})
+			}
+		case map[string]interface{}:
+			id := firstString(v, "id", "model", "modelId", "name")
+			if id == "" {
+				continue
+			}
+			name := firstString(v, "name", "displayName", "label")
+			description := firstString(v, "description")
+			models = append(models, AgentModelOption{ID: id, Name: name, Description: description})
+		}
+	}
+	return models
 }
 
 func (a *AcpAgent) handleRequest(id interface{}, method string, params interface{}) {

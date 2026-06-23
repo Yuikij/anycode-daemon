@@ -100,6 +100,7 @@ type Server struct {
 	codex   *AgentBridge
 	claude  *ClaudeBridge
 	cursor  *CursorBridge
+	trae    *TraeBridge
 	runtime *AgentRuntimeManager
 
 	cron *CronManager
@@ -150,6 +151,7 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		codex:             NewAgentBridge(),
 		claude:            NewClaudeBridge(),
 		cursor:            NewCursorBridge(),
+		trae:              NewTraeBridge(),
 		clients:           make(map[*wsClient]struct{}),
 		routes:            make(map[string]func(req RpcRequest, client *wsClient) (interface{}, error)),
 		eventJournal:      journal,
@@ -158,6 +160,7 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		NewCodexRuntime(s.codex),
 		NewClaudeRuntime(s.claude),
 		NewCursorRuntime(s.cursor),
+		NewTraeRuntime(s.trae),
 	)
 	if err := journal.upsertProject(projectRoot, filepath.Base(projectRoot), nowUnixMilli()); err != nil {
 		_ = journal.close()
@@ -196,6 +199,13 @@ func NewServer(port int, projectRoot, token string) (*Server, error) {
 		s.recordAgentOperationEvent("cursor", method, params)
 		s.recordCursorPermissionEvent(method, params)
 		s.broadcastRecordedEvent("cursor", "cursor."+method, params)
+	}
+
+	s.trae.SetCwd(s.projectRoot)
+	s.trae.OnNotification = func(method string, params interface{}) {
+		s.recordAgentOperationEvent("trae", method, params)
+		s.recordTraePermissionEvent(method, params)
+		s.broadcastRecordedEvent("trae", "trae."+method, params)
 	}
 	if err := s.restorePersistedAgentSessions(); err != nil {
 		_ = journal.close()
@@ -404,6 +414,10 @@ func (s *Server) recordClaudePermissionEvent(method string, params interface{}) 
 
 func (s *Server) recordCursorPermissionEvent(method string, params interface{}) {
 	s.recordAgentPermissionEvent("cursor", method, params)
+}
+
+func (s *Server) recordTraePermissionEvent(method string, params interface{}) {
+	s.recordAgentPermissionEvent("trae", method, params)
 }
 
 func (s *Server) recordAgentPermissionEvent(agent, method string, params interface{}) {

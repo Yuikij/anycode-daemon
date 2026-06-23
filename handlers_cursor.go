@@ -94,6 +94,45 @@ func (s *Server) handleCursorSetConfig(req RpcRequest, client *wsClient) (interf
 	return s.runtime.ConfigResponse("cursor"), nil
 }
 
+func (s *Server) handleCursorModelList(req RpcRequest, client *wsClient) (interface{}, error) {
+	runtime := s.runtime.MustRuntime("cursor")
+	p, err := decodeParams[cursorModelListParams](req)
+	if err != nil {
+		return nil, err
+	}
+	context, err := s.resolveScope(p.projectScope, true)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.IsRunning() {
+		if err := runtime.Start(context.cwd); err != nil {
+			return nil, err
+		}
+	} else {
+		runtime.SetCwd(context.cwd)
+	}
+	models, err := s.cursor.ListModels()
+	if err != nil {
+		log.Printf("[cursor] model/list failed: %v", err)
+		return map[string]interface{}{"ok": true, "data": []AgentModelOption{}}, nil
+	}
+	return map[string]interface{}{"ok": true, "data": models}, nil
+}
+
+func (s *Server) handleCursorSetModel(req RpcRequest, client *wsClient) (interface{}, error) {
+	p, err := decodeParams[cursorSetModelParams](req)
+	if err != nil {
+		return nil, err
+	}
+	if p.Model == "" {
+		return nil, fmt.Errorf("model is required")
+	}
+	if err := s.cursor.SetModel(p.Model); err != nil {
+		return nil, err
+	}
+	return s.runtime.ConfigResponse("cursor"), nil
+}
+
 func (s *Server) handleCursorPrompt(req RpcRequest, client *wsClient) (interface{}, error) {
 	runtime := s.runtime.MustRuntime("cursor")
 	p, err := decodeParams[cursorPromptParams](req)
@@ -108,7 +147,7 @@ func (s *Server) handleCursorPrompt(req RpcRequest, client *wsClient) (interface
 	if text == "" {
 		return nil, fmt.Errorf("prompt text is required")
 	}
-	// model/mode use tri-state null-vs-absent semantics that JSON structs can't
+	// mode uses tri-state null-vs-absent semantics that JSON structs can't
 	// express, so the config patch still reads the raw param map.
 	model, mode := buildCursorConfigPatch(getParams(req.Params))
 	s.cursor.SetConfig(model, mode)
@@ -168,19 +207,11 @@ func (s *Server) handleCursorPermissionRespond(req RpcRequest, client *wsClient)
 	return s.runtime.ActionResponse("cursor", nil), nil
 }
 
-// buildCursorConfigPatch reads model/mode with tri-state semantics: an absent
-// key leaves the value unchanged (nil), while an explicit null resets it to the
-// daemon default ("default" model / "agent" mode).
+// buildCursorConfigPatch reads mode with tri-state semantics: an absent key
+// leaves the value unchanged (nil), while an explicit null resets it to the
+// daemon default ("agent" mode). Model changes must use cursor.setModel.
 func buildCursorConfigPatch(params map[string]interface{}) (*string, *string) {
 	var model, mode *string
-	if v, ok := getOptionalParamString(params, "model"); ok {
-		if v == nil {
-			d := "default"
-			model = &d
-		} else {
-			model = v
-		}
-	}
 	if v, ok := getOptionalParamString(params, "mode"); ok {
 		if v == nil {
 			d := "agent"

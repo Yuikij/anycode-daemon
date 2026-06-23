@@ -53,9 +53,16 @@ func (s *Server) handleCodexConfigWrite(req RpcRequest, client *wsClient) (inter
 	if params == nil {
 		return nil, fmt.Errorf("params required")
 	}
-	result, err := s.runtime.CodexRuntime().ConfigWrite(params)
+	normalizedParams, _, err := s.normalizeProjectScopedParams(params, false)
 	if err != nil {
 		return nil, err
+	}
+	result, err := s.runtime.CodexRuntime().ConfigWrite(normalizedParams)
+	if err != nil {
+		return nil, err
+	}
+	if keyPath, _ := normalizedParams["keyPath"].(string); keyPath != "" {
+		result[keyPath] = normalizedParams["value"]
 	}
 	return s.runtime.ActionResponse("codex", result), nil
 

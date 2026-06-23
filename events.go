@@ -127,6 +127,12 @@ func (s *Server) helloAgentStatus(includeProjectGeneration bool) map[string]inte
 			LastOperation:  s.latestOperationPayload("cursor"),
 			LastPermission: s.latestPermissionPayload("cursor"),
 		}),
+		"trae": s.runtime.TaskSnapshot("trae", RuntimeSnapshotOptions{
+			LatestSeq:      options.LatestSeq,
+			Project:        options.Project,
+			LastOperation:  s.latestOperationPayload("trae"),
+			LastPermission: s.latestPermissionPayload("trae"),
+		}),
 	}
 	shaped := shapeSnapshotPayload(map[string]interface{}{"agents": statuses}, includeProjectGeneration)
 	if agents, ok := shaped["agents"].(map[string]interface{}); ok {

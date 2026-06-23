@@ -91,6 +91,8 @@ func (m *AgentRuntimeManager) StatusSnapshot(agent string) map[string]interface{
 		return runtime.statusSnapshot()
 	case *CursorRuntime:
 		return runtime.statusSnapshot()
+	case *TraeRuntime:
+		return runtime.statusSnapshot()
 	default:
 		return map[string]interface{}{}
 	}
@@ -104,6 +106,8 @@ func (m *AgentRuntimeManager) TaskSnapshot(agent string, options RuntimeSnapshot
 	case *CodexRuntime:
 		snapshot = runtime.taskSnapshot()
 	case *CursorRuntime:
+		snapshot = runtime.taskSnapshot()
+	case *TraeRuntime:
 		snapshot = runtime.taskSnapshot()
 	default:
 		snapshot = map[string]interface{}{}
@@ -132,6 +136,8 @@ func (m *AgentRuntimeManager) StartResponse(agent string, options RuntimeStartOp
 		return runtime.startResponse(options)
 	case *CursorRuntime:
 		return runtime.startResponse(options)
+	case *TraeRuntime:
+		return runtime.startResponse(options)
 	default:
 		return map[string]interface{}{"ok": options.Error == nil}
 	}
@@ -145,6 +151,8 @@ func (m *AgentRuntimeManager) SessionResponse(agent string, payload map[string]i
 		return runtime.sessionResponse(payload)
 	case *CursorRuntime:
 		return runtime.sessionResponse(payload)
+	case *TraeRuntime:
+		return runtime.sessionResponse(payload)
 	default:
 		return cloneResponseMap(payload)
 	}
@@ -157,6 +165,8 @@ func (m *AgentRuntimeManager) PromptAcceptedResponse(agent string, prompt Prompt
 	case *CodexRuntime:
 		return runtime.promptAcceptedResponse(prompt)
 	case *CursorRuntime:
+		return runtime.promptAcceptedResponse(prompt)
+	case *TraeRuntime:
 		return runtime.promptAcceptedResponse(prompt)
 	default:
 		response := cloneResponseMap(prompt.Payload)
@@ -176,6 +186,8 @@ func (m *AgentRuntimeManager) ConfigResponse(agent string) map[string]interface{
 		return runtime.configUpdateResponse()
 	case *CursorRuntime:
 		return runtime.configUpdateResponse()
+	case *TraeRuntime:
+		return runtime.configUpdateResponse()
 	default:
 		return map[string]interface{}{"ok": true}
 	}
@@ -188,6 +200,8 @@ func (m *AgentRuntimeManager) ActionResponse(agent string, payload map[string]in
 	case *CodexRuntime:
 		return runtime.actionResponse(payload)
 	case *CursorRuntime:
+		return runtime.actionResponse(payload)
+	case *TraeRuntime:
 		return runtime.actionResponse(payload)
 	default:
 		response := cloneResponseMap(payload)
@@ -208,6 +222,11 @@ func (m *AgentRuntimeManager) CodexRuntime() *CodexRuntime {
 
 func (m *AgentRuntimeManager) CursorRuntime() *CursorRuntime {
 	runtime, _ := m.runtimes["cursor"].(*CursorRuntime)
+	return runtime
+}
+
+func (m *AgentRuntimeManager) TraeRuntime() *TraeRuntime {
+	runtime, _ := m.runtimes["trae"].(*TraeRuntime)
 	return runtime
 }
 
@@ -459,7 +478,11 @@ func NewClaudeRuntime(bridge *ClaudeBridge) *ClaudeRuntime {
 		bridge.agent.Respond,
 		func() string { return canonicalClaudePermissionMode(bridge.SelectedMode()) },
 		bridge.emit,
-		[]string{"bypass", "dontAsk", "auto", "acceptEdits", "bypassPermissions"},
+		// The permission mode is now pushed to claude-code-acp via
+		// session/set_mode, so the SDK owns acceptEdits/plan/dontAsk semantics
+		// (and usually won't forward a request for them). This broker only
+		// needs to auto-approve the true bypass modes as a safety net.
+		[]string{"bypass", "bypassPermissions"},
 	)
 	bridge.SetPermissionDelegate(runtime.permissionStore)
 	return runtime
@@ -858,5 +881,130 @@ func (r *CursorRuntime) statusSnapshot() map[string]interface{} {
 }
 
 func (r *CursorRuntime) taskSnapshot() map[string]interface{} {
+	return r.bridge.TaskStatus()
+}
+
+// TraeRuntime adapts the Trae CLI (run as an ACP server via `traecli acp serve`)
+// to the AgentRuntime interface. It mirrors CursorRuntime since both are pure
+// ACP agents sharing the interactive permission flow; Trae's config is
+// model+mode like Cursor, but its mode vocabulary is whatever the agent
+// advertises rather than a fixed agent/plan/ask set.
+type TraeRuntime struct {
+	bridge          *TraeBridge
+	permissionStore *AcpPermissionStore
+}
+
+func NewTraeRuntime(bridge *TraeBridge) *TraeRuntime {
+	runtime := &TraeRuntime{bridge: bridge}
+	// Trae has no "auto-approve" permission mode of its own — every tool
+	// request is surfaced to the UI for an explicit decision.
+	runtime.permissionStore = NewAcpPermissionStore(
+		bridge.agent.Respond,
+		func() string { return "" },
+		bridge.emit,
+		nil,
+	)
+	bridge.SetPermissionDelegate(runtime.permissionStore)
+	return runtime
+}
+
+func (r *TraeRuntime) Name() string                       { return "trae" }
+func (r *TraeRuntime) SetCwd(cwd string)                  { r.bridge.SetCwd(cwd) }
+func (r *TraeRuntime) CheckAvailable() bool               { return r.bridge.CheckAvailable() }
+func (r *TraeRuntime) Available() bool                    { return r.bridge.Available() }
+func (r *TraeRuntime) IsRunning() bool                    { return r.bridge.IsRunning() }
+func (r *TraeRuntime) Stop()                              { r.bridge.Stop() }
+func (r *TraeRuntime) TaskStatus() map[string]interface{} { return r.bridge.TaskStatus() }
+func (r *TraeRuntime) SessionID() string                  { return r.bridge.SessionId() }
+func (r *TraeRuntime) RestoreSession(sessionID string)    { r.bridge.RestoreSession(sessionID) }
+func (r *TraeRuntime) Start(cwd string) error             { return r.bridge.Start(cwd) }
+func (r *TraeRuntime) LoadSession(sessionID, cwd string) (map[string]interface{}, error) {
+	return r.bridge.LoadSession(sessionID, cwd)
+}
+func (r *TraeRuntime) NewSession(cwd string) (map[string]interface{}, error) {
+	sessionID, err := r.bridge.NewSession(cwd)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"sessionId": sessionID}, nil
+}
+func (r *TraeRuntime) Prompt(req PromptRequest) (PromptResponse, error) {
+	operationID, err := r.bridge.Prompt(req.Text, req.Images)
+	if err != nil {
+		return PromptResponse{}, err
+	}
+	return PromptResponse{OperationID: operationID}, nil
+}
+func (r *TraeRuntime) Cancel(sessionID string) error {
+	r.bridge.Cancel()
+	return nil
+}
+
+func (r *TraeRuntime) ResolvePermission(requestID, optionID string, cancelled bool) error {
+	return r.permissionStore.Resolve(requestID, optionID, cancelled)
+}
+
+func (r *TraeRuntime) PendingPermissions() []map[string]interface{} {
+	return r.permissionStore.Pending()
+}
+
+func (r *TraeRuntime) configResponse() map[string]interface{} {
+	config := r.bridge.ConfigSnapshot()
+	caps := r.bridge.Capabilities()
+	return map[string]interface{}{
+		"config":       config,
+		"capabilities": caps,
+		"model":        config["model"],
+		"mode":         config["mode"],
+	}
+}
+
+func (r *TraeRuntime) startResponse(options RuntimeStartOptions) map[string]interface{} {
+	response := r.configResponse()
+	response["ok"] = true
+	response["available"] = options.Available
+	response["cwd"] = options.Cwd
+	response["running"] = r.IsRunning()
+	response["sessionId"] = r.SessionID()
+	if options.Error != nil {
+		response["running"] = false
+		response["error"] = options.Error.Error()
+	}
+	return response
+}
+
+func (r *TraeRuntime) sessionResponse(payload map[string]interface{}) map[string]interface{} {
+	response := cloneResponseMap(payload)
+	response["ok"] = true
+	return response
+}
+
+func (r *TraeRuntime) promptAcceptedResponse(prompt PromptResponse) map[string]interface{} {
+	response := r.configResponse()
+	response["ok"] = true
+	response["operationId"] = prompt.OperationID
+	response["sessionId"] = r.SessionID()
+	return response
+}
+
+func (r *TraeRuntime) configUpdateResponse() map[string]interface{} {
+	response := r.statusSnapshot()
+	response["ok"] = true
+	return response
+}
+
+func (r *TraeRuntime) actionResponse(payload map[string]interface{}) map[string]interface{} {
+	return ensureOK(cloneResponseMap(payload))
+}
+
+func (r *TraeRuntime) statusSnapshot() map[string]interface{} {
+	response := r.configResponse()
+	response["available"] = r.Available()
+	response["running"] = r.IsRunning()
+	response["sessionId"] = r.SessionID()
+	return response
+}
+
+func (r *TraeRuntime) taskSnapshot() map[string]interface{} {
 	return r.bridge.TaskStatus()
 }
