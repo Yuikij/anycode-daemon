@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -60,7 +61,13 @@ func (s *Server) recordEvent(agent, method string, params interface{}) eventEnve
 	}
 	stored, err := s.eventJournal.append(event)
 	if err != nil {
-		panic(fmt.Sprintf("append event: %v", err))
+		// Never crash the daemon over a journal write failure (disk full, DB
+		// locked, WAL corruption): clients still get the live broadcast, only
+		// replay-after-reconnect loses this event. recordEvent runs on agent
+		// notification goroutines with no recover, so a panic here would take
+		// the whole process down mid-turn.
+		log.Printf("[events] failed to journal %s event %q (degrading to live-only): %v", agent, method, err)
+		return event
 	}
 
 	return stored
@@ -82,10 +89,10 @@ func (s *Server) resumeResult(afterSeq uint64, projectID string, allowReplay boo
 	latestSeq := s.latestEventSeq()
 	result := map[string]interface{}{
 		"ok":            true,
-		"events":         []eventEnvelope{},
-		"latestSeq":      latestSeq,
-		"project":        s.currentProjectInfo(),
-		"cursorExpired":  false,
+		"events":        []eventEnvelope{},
+		"latestSeq":     latestSeq,
+		"project":       s.currentProjectInfo(),
+		"cursorExpired": false,
 	}
 
 	if !allowReplay {
@@ -309,19 +316,19 @@ func (s *Server) agentResumeSnapshot(agent string, latestSeq uint64, project *Pr
 	}
 
 	switch agent {
-	case "claude":
-		options.LastOperation = s.latestOperationPayload("claude")
-		options.LastPermission = s.latestPermissionPayload("claude")
+	case "claude", "cursor", "trae":
+		options.LastOperation = s.latestOperationPayload(agent)
+		options.LastPermission = s.latestPermissionPayload(agent)
 	case "codex":
 		options.LastOperation = s.latestOperationPayload("codex")
-	case "cursor":
-		options.LastOperation = s.latestOperationPayload("cursor")
-		options.LastPermission = s.latestPermissionPayload("cursor")
 	}
 
 	return s.runtime.TaskSnapshot(agent, options)
 }
 
+// resumeSnapshot must cover every agent helloAgentStatus covers, otherwise a
+// client reconnecting after cursor expiry gets no recovery state for the
+// missing agents.
 func (s *Server) resumeSnapshot(latestSeq uint64) map[string]interface{} {
 	project := s.currentProjectInfo()
 	return map[string]interface{}{
@@ -330,6 +337,8 @@ func (s *Server) resumeSnapshot(latestSeq uint64) map[string]interface{} {
 		"agents": map[string]interface{}{
 			"codex":  s.agentResumeSnapshot("codex", latestSeq, project),
 			"claude": s.agentResumeSnapshot("claude", latestSeq, project),
+			"cursor": s.agentResumeSnapshot("cursor", latestSeq, project),
+			"trae":   s.agentResumeSnapshot("trae", latestSeq, project),
 		},
 	}
 }

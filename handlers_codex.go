@@ -88,8 +88,8 @@ func (s *Server) handleCodexRevertFileChanges(req RpcRequest, client *wsClient) 
 	if err := s.validateExpectedProjectGeneration(params); err != nil {
 		return nil, err
 	}
-	return handleFileChanges(params, s.projectRoot, true)
-
+	projectRoot, _ := s.currentProjectState()
+	return handleFileChanges(params, projectRoot, true)
 }
 
 func (s *Server) handleCodexApplyFileChanges(req RpcRequest, client *wsClient) (interface{}, error) {
@@ -97,6 +97,6 @@ func (s *Server) handleCodexApplyFileChanges(req RpcRequest, client *wsClient) (
 	if err := s.validateExpectedProjectGeneration(params); err != nil {
 		return nil, err
 	}
-	return handleFileChanges(params, s.projectRoot, false)
-
+	projectRoot, _ := s.currentProjectState()
+	return handleFileChanges(params, projectRoot, false)
 }

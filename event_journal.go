@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -228,10 +229,6 @@ func (j *eventJournal) listProjects() ([]persistedProject, error) {
 		return nil, fmt.Errorf("iterate projects: %w", err)
 	}
 	return projects, nil
-}
-
-func (j *eventJournal) saveAgentSession(agent, sessionID string, updatedAt int64) error {
-	return j.saveAgentState(agent, sessionID, "", updatedAt)
 }
 
 func (j *eventJournal) saveAgentState(agent, sessionID, threadID string, updatedAt int64) error {
@@ -636,9 +633,13 @@ func (j *eventJournal) replay(afterSeq uint64, projectID string) ([]eventEnvelop
 	}
 	query += ` ORDER BY seq ASC`
 
+	// Replay failures must not crash the daemon: returning an empty replay is
+	// safe because clients treat a missing/short replay like an expired cursor
+	// and fall back to snapshot recovery.
 	rows, err := j.db.Query(query, args...)
 	if err != nil {
-		panic(fmt.Sprintf("query replay events: %v", err))
+		log.Printf("[journal] query replay events failed: %v", err)
+		return nil, 0
 	}
 	defer rows.Close()
 
@@ -646,12 +647,14 @@ func (j *eventJournal) replay(afterSeq uint64, projectID string) ([]eventEnvelop
 	for rows.Next() {
 		event, err := scanEventEnvelope(rows)
 		if err != nil {
-			panic(fmt.Sprintf("scan replay event: %v", err))
+			log.Printf("[journal] scan replay event failed: %v", err)
+			return nil, 0
 		}
 		events = append(events, event)
 	}
 	if err := rows.Err(); err != nil {
-		panic(fmt.Sprintf("iterate replay events: %v", err))
+		log.Printf("[journal] iterate replay events failed: %v", err)
+		return nil, 0
 	}
 
 	var latest int64

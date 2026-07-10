@@ -13,7 +13,7 @@ import (
 	"syscall"
 )
 
-const Version = "0.7.8"
+const Version = "0.7.9"
 
 func main() {
 	// Subcommand dispatch. `anycode start` (or no args) runs the daemon;
@@ -92,6 +92,8 @@ Run 'anycode <command> -h' for more details on a specific command.
 }
 
 func cmdStart(args []string) {
+	augmentAgentPath()
+
 	fs := flag.NewFlagSet("start", flag.ExitOnError)
 	port := fs.Int("port", 9527, "WebSocket server port")
 	root := fs.String("root", "", "Project root directory (default: cwd)")
@@ -215,6 +217,9 @@ func cmdStart(args []string) {
 		server.claude.Stop()
 		server.cursor.Stop()
 		server.trae.Stop()
+		// os.Exit skips deferred calls, so close the event journal explicitly
+		// here — otherwise SQLite may exit without a WAL checkpoint.
+		_ = server.Close()
 		if daemonized {
 			removePidFile()
 		}

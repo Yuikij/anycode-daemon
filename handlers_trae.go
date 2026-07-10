@@ -75,9 +75,16 @@ func (s *Server) handleTraeNewSession(req RpcRequest, client *wsClient) (interfa
 	if err != nil {
 		return nil, err
 	}
-	context, err := s.resolveScope(p.projectScope, true)
+	context, err := s.resolveScope(p.projectScope, false)
 	if err != nil {
 		return nil, err
+	}
+	// When the client doesn't pass a cwd, fall back to TraeBridge's last
+	// known cwd (set via trae.start) instead of the daemon project root.
+	// Otherwise project.root would silently override the directory the user
+	// picked in the iOS/web picker.
+	if p.Cwd == "" {
+		context.cwd = ""
 	}
 	result, err := runtime.NewSession(context.cwd)
 	if err != nil {
@@ -139,9 +146,14 @@ func (s *Server) handleTraePrompt(req RpcRequest, client *wsClient) (interface{}
 	if err != nil {
 		return nil, err
 	}
-	context, err := s.resolveScope(p.projectScope, true)
+	context, err := s.resolveScope(p.projectScope, false)
 	if err != nil {
 		return nil, err
+	}
+	// Same rationale as trae.newSession: keep the client-provided cwd, or
+	// let the runtime keep its current cwd; don't override with project root.
+	if p.Cwd == "" {
+		context.cwd = ""
 	}
 	text := firstNonEmpty(p.Prompt, p.Text)
 	if text == "" {
@@ -155,7 +167,7 @@ func (s *Server) handleTraePrompt(req RpcRequest, client *wsClient) (interface{}
 		if err := runtime.Start(context.cwd); err != nil {
 			return nil, fmt.Errorf("failed to start trae: %w", err)
 		}
-	} else {
+	} else if context.cwd != "" {
 		runtime.SetCwd(context.cwd)
 	}
 	result, err := runtime.Prompt(PromptRequest{Text: text, Images: p.Images})

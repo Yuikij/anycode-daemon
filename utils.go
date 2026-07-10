@@ -1,10 +1,18 @@
 package main
 
 import (
-	"encoding/json"
-	"strconv"
+	"crypto/subtle"
 	"strings"
 )
+
+// tokenEqual compares two auth tokens in constant time to avoid a timing
+// side channel on the daemon's only line of defense.
+func tokenEqual(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
+}
 
 func firstString(obj map[string]interface{}, keys ...string) string {
 	for _, key := range keys {
@@ -15,30 +23,6 @@ func firstString(obj map[string]interface{}, keys ...string) string {
 		}
 	}
 	return ""
-}
-
-func firstInt(obj map[string]interface{}, fallback int, keys ...string) int {
-	for _, key := range keys {
-		switch val := obj[key].(type) {
-		case int:
-			return val
-		case int64:
-			return int(val)
-		case float64:
-			return int(val)
-		case json.Number:
-			i, err := val.Int64()
-			if err == nil {
-				return int(i)
-			}
-		case string:
-			i, err := strconv.Atoi(strings.TrimSpace(val))
-			if err == nil {
-				return i
-			}
-		}
-	}
-	return fallback
 }
 
 func firstNonEmpty(values ...string) string {

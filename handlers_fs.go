@@ -57,10 +57,11 @@ func (s *Server) handleFsTree(req RpcRequest, client *wsClient) (interface{}, er
 	if p.Depth != nil {
 		depth = *p.Depth
 	}
-	fullPath, _, err := resolveProjectPath(s.projectRoot, p.Path)
+	// Read the root once under the lock: project.open mutates it concurrently.
+	projectRoot, _ := s.currentProjectState()
+	fullPath, _, err := resolveProjectPath(projectRoot, p.Path)
 	if err != nil {
 		return nil, err
 	}
-	return getFileTree(fullPath, s.projectRoot, depth)
-
+	return getFileTree(fullPath, projectRoot, depth)
 }

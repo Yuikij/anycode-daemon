@@ -9,3 +9,7 @@ anycode-daemon
 anycode-daemon-*
 anycode-daemon.exe
 *.exe
+
+# Logs
+daemon.log
+*.log

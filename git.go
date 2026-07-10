@@ -318,18 +318,6 @@ func getGitDiff(cwd string, filePath string) ([]GitDiff, error) {
 	return parseDiff(out), nil
 }
 
-func getGitDiffStaged(cwd string, filePath string) ([]GitDiff, error) {
-	args := []string{"diff", "--cached"}
-	if filePath != "" {
-		args = append(args, "--", filePath)
-	}
-	out, err := gitCmd(cwd, args...)
-	if err != nil {
-		return nil, err
-	}
-	return parseDiff(out), nil
-}
-
 func getGitLog(cwd string, count int) ([]GitLogEntry, error) {
 	out, err := gitCmd(cwd, "log", fmt.Sprintf("--max-count=%d", count),
 		"--format=%H%x1f%h%x1f%s%x1f%an%x1f%aI%x1e")
@@ -356,17 +344,6 @@ func parseGitLog(output string) []GitLogEntry {
 		})
 	}
 	return entries
-}
-func getGitFileDiff(cwd, commitHash, filePath string) ([]GitDiff, error) {
-	args := []string{"diff", commitHash + "^", commitHash}
-	if filePath != "" {
-		args = append(args, "--", filePath)
-	}
-	out, err := gitCmd(cwd, args...)
-	if err != nil {
-		return nil, err
-	}
-	return parseDiff(out), nil
 }
 
 func getGitDiffHead(cwd string) (map[string]interface{}, error) {

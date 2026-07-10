@@ -19,7 +19,7 @@ func (s *Server) handleShareCreate(req RpcRequest, client *wsClient) (interface{
 		return nil, fmt.Errorf("html content is required")
 	}
 
-	// The HTML stays on THIS machine 闁?we never upload it to the cloud.
+	// The HTML stays on THIS machine — we never upload it to the cloud.
 	b := make([]byte, 6)
 	rand.Read(b)
 	id := hex.EncodeToString(b)
@@ -47,6 +47,4 @@ func (s *Server) handleShareCreate(req RpcRequest, client *wsClient) (interface{
 	}
 	urlStr := fmt.Sprintf("http://%s/share/%s", host, id)
 	return map[string]interface{}{"ok": true, "id": id, "url": urlStr}, nil
-
-	// 闁冲厜鍋撻柍鍏夊亾 Browse any directory (absolute paths) 闁冲厜鍋撻柍鍏夊亾
 }

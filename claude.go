@@ -7,77 +7,32 @@ import (
 	"os"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
-// maxCachedNotifications bounds the current-turn replay buffer we keep for
-// reconnect recovery while a Claude task is in flight.
-const maxCachedNotifications = 300
-
-// cachedNotification stores a single notification for replay after
-// iOS app reconnect.
-type cachedNotification struct {
-	Method string      `json:"method"`
-	Params interface{} `json:"params"`
-	Time   int64       `json:"time"`
-}
-
 // ClaudeBridge runs Claude Code through the standard Agent Client Protocol
 // (ACP) using `claude-code-acp` (the Zed-maintained bridge) as the agent.
-// Session storage still lives in `~/.claude/projects/<cwd-key>/*.jsonl`
-// because claude-code-acp delegates to the Claude SDK, so session listing
-// and resume continue to read those JSONL files directly.
+// The shared ACP plumbing lives in the embedded acpChatBridge; Claude's
+// genuine differences are its model/effort/permissionMode config vocabulary,
+// the session/set_mode pushes that make permission modes take effect in
+// claude-code-acp, and its on-disk JSONL transcripts: session storage still
+// lives in `~/.claude/projects/<cwd-key>/*.jsonl` because claude-code-acp
+// delegates to the Claude SDK, so session listing and resume continue to read
+// those JSONL files directly (see claude_session.go).
 type ClaudeBridge struct {
-	mu      sync.Mutex
-	agentMu sync.Mutex
+	acpChatBridge
 
-	agent *AcpAgent
-
-	// Selected Claude config from the UI. These are daemon-owned preferences /
-	// policies, not guaranteed live ACP session mutations.
-	cwd            string
-	currentSession string
-	selectedModel  string
+	// Selected Claude config from the UI (beyond the shared model/mode).
+	// These are daemon-owned preferences / policies, not guaranteed live ACP
+	// session mutations. Guarded by the embedded acpChatBridge mutex.
 	selectedEffort string
-	selectedMode   string
 
 	// Last metadata observed for the active session (typically parsed from
 	// JSONL history or emitted by Claude), kept separate from the selected UI
 	// config so loading an old session doesn't silently overwrite the picker.
+	// Guarded by the embedded acpChatBridge mutex.
 	sessionModel string
 	sessionMode  string
-
-	// Pending permission requests awaiting user decision via
-	// claude.permission/respond. Keyed by requestId (the daemon-generated
-	// id we surface to the iOS UI, not the ACP id).
-	permissionDelegate ClaudePermissionDelegate
-
-	// Task tracking: lets the iOS app query whether a task is in progress
-	// after reconnecting from background.
-	taskRunning        bool
-	taskStartedAt      time.Time
-	currentOperationID string
-
-	// Ring buffer of recent notifications for replay on reconnect.
-	lastNotifications []cachedNotification
-
-	OnNotification func(method string, params interface{})
-}
-
-// pendingPermission tracks one ACP permission request that's waiting on
-// the user's decision in the app. We keep both the original ACP request
-// id (so we know who to respond to) and the parsed option list (so we
-// can validate the user's selection).
-type pendingPermission struct {
-	requestId string
-	acpID     interface{}
-	options   []interface{}
-	timer     *time.Timer
-	sessionId string
-	toolName  string
-	toolCall  map[string]interface{}
-	createdAt time.Time
 }
 
 // acpCommand is the ACP bridge binary. It can be overridden via the
@@ -91,10 +46,13 @@ func claudeAcpCommand() string {
 
 func NewClaudeBridge() *ClaudeBridge {
 	c := &ClaudeBridge{
-		selectedMode:   "default",
 		selectedEffort: "medium",
 	}
-	c.agent = NewAcpAgent(AcpAgentConfig{
+	c.selectedMode = "default"
+	claudeUnavailableError := func() error {
+		return fmt.Errorf("%s not found in PATH; install with `npm install -g %s`", claudeAcpCommand(), claudeAcpPackage)
+	}
+	c.initAcpChatBridge(AcpAgentConfig{
 		ID:          "claude",
 		Label:       "Claude",
 		Command:     claudeAcpCommand(),
@@ -109,108 +67,26 @@ func NewClaudeBridge() *ClaudeBridge {
 		// (auto-approving for bypass/dontAsk modes, forwarding to the iOS
 		// UI otherwise), so leave the blanket auto-approve off.
 		AutoApprovePermissions: false,
+	}, acpChatBridgeHooks{
+		id:                    "claude",
+		label:                 "Claude",
+		ensureInstalled:       ensureClaudeAcp,
+		startUnavailableError: claudeUnavailableError,
+		loadUnavailableError:  claudeUnavailableError,
+		canonicalModel:        canonicalClaudeModel,
+		canonicalMode:         canonicalClaudePermissionMode,
+		afterModelSetLocked: func(model string) {
+			c.sessionModel = model
+		},
 	})
-	c.agent.OnNotification = func(method string, params interface{}) {
-		// Track sessionId from session updates so resume/cancel work.
-		if p, ok := params.(map[string]interface{}); ok {
-			if sid, _ := p["sessionId"].(string); sid != "" {
-				c.mu.Lock()
-				if c.currentSession == "" {
-					c.currentSession = sid
-				}
-				c.mu.Unlock()
-			}
-		}
-		c.emit(method, params)
-
-		// Detect terminal turn states to clear taskRunning.
-		if method == "turn/completed" || method == "turn/failed" || method == "turn/aborted" || method == "turn/interrupted" {
-			c.mu.Lock()
-			c.taskRunning = false
-			c.mu.Unlock()
-		}
-	}
-	c.agent.OnPermissionRequest = c.handlePermissionRequest
+	c.hooks.newSession = c.NewSession
 	return c
-}
-
-func (c *ClaudeBridge) SetPermissionDelegate(delegate ClaudePermissionDelegate) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.permissionDelegate = delegate
-}
-
-// handlePermissionRequest is invoked when claude-code-acp asks the client
-// to approve/deny a tool invocation. Behavior depends on the configured
-// permission mode:
-//
-//   - bypass / dontAsk: auto-approve immediately using the first allow
-//     option. (The Claude SDK's own bypassPermissions/acceptEdits modes
-//     normally short-circuit this, but the bridge still occasionally
-//     forwards a request — handle it anyway.)
-//   - Everything else: emit `claude.permission/request` to the iOS UI
-//     and wait for `claude.permission/respond`. After 5 minutes with no
-//     reply we auto-reject so Claude doesn't hang forever.
-func (c *ClaudeBridge) handlePermissionRequest(id interface{}, params map[string]interface{}) {
-	c.mu.Lock()
-	delegate := c.permissionDelegate
-	c.mu.Unlock()
-	if delegate != nil {
-		delegate.HandleRequest(id, params)
-	}
-}
-
-// RespondPermission resolves a previously-emitted permission/request. If
-// `cancelled` is true the daemon picks a reject option (falling back to
-// the ACP "cancelled" outcome when no reject option is offered).
-func (c *ClaudeBridge) RespondPermission(requestId, optionId string, cancelled bool) error {
-	c.mu.Lock()
-	delegate := c.permissionDelegate
-	c.mu.Unlock()
-	if delegate == nil {
-		return fmt.Errorf("permission delegate not configured")
-	}
-	return delegate.Resolve(requestId, optionId, cancelled)
-}
-
-func (c *ClaudeBridge) SetCwd(cwd string) {
-	c.mu.Lock()
-	c.cwd = cwd
-	c.mu.Unlock()
-	c.agent.SetCwd(cwd)
-}
-
-func (c *ClaudeBridge) IsRunning() bool { return c.agent.IsRunning() }
-func (c *ClaudeBridge) Available() bool { return c.agent.Available() }
-
-func (c *ClaudeBridge) SessionId() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.currentSession
-}
-
-func (c *ClaudeBridge) RestoreSession(sessionId string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.currentSession = sessionId
-}
-
-func (c *ClaudeBridge) SelectedModel() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.selectedModel
 }
 
 func (c *ClaudeBridge) SelectedEffort() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.selectedEffort
-}
-
-func (c *ClaudeBridge) SelectedMode() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.selectedMode
 }
 
 func (c *ClaudeBridge) SessionModel() string {
@@ -232,72 +108,6 @@ func (c *ClaudeBridge) ConfigSnapshot() map[string]interface{} {
 		"model":          canonicalClaudeModel(c.selectedModel),
 		"effort":         canonicalClaudeEffort(c.selectedEffort),
 		"permissionMode": canonicalClaudePermissionMode(c.selectedMode),
-	}
-}
-
-func (c *ClaudeBridge) Capabilities() map[string]bool {
-	caps := c.agent.Capabilities()
-	return map[string]bool{
-		"canSetModel": caps.CanSetModel,
-		"canSetMode":  caps.CanSetMode,
-	}
-}
-
-func (c *ClaudeBridge) CheckAvailable() bool {
-	return c.agent.CheckAvailable()
-}
-
-// Start ensures the ACP agent subprocess is running. The caller can pass a
-// cwd to update the working directory used for newly created sessions.
-func (c *ClaudeBridge) Start(cwd string) error {
-	c.mu.Lock()
-	if cwd != "" {
-		c.cwd = cwd
-	}
-	c.mu.Unlock()
-	if cwd != "" {
-		c.agent.SetCwd(cwd)
-	}
-
-	if !ensureClaudeAcp(c.agent.CheckAvailable) {
-		return fmt.Errorf("%s not found in PATH; install with `npm install -g %s`", claudeAcpCommand(), claudeAcpPackage)
-	}
-	c.agentMu.Lock()
-	err := c.agent.Start()
-	c.agentMu.Unlock()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *ClaudeBridge) Stop() {
-	c.agent.Stop()
-	c.mu.Lock()
-	delegate := c.permissionDelegate
-	c.mu.Unlock()
-	resolved := []map[string]interface{}{}
-	if delegate != nil {
-		resolved = delegate.Clear("stopped")
-	}
-	c.mu.Lock()
-	c.currentSession = ""
-	c.taskRunning = false
-	c.taskStartedAt = time.Time{}
-	c.currentOperationID = ""
-	c.lastNotifications = nil
-	c.mu.Unlock()
-	for _, notif := range resolved {
-		c.emit("permission/resolved", notif)
-	}
-}
-
-func (c *ClaudeBridge) Cancel() {
-	c.mu.Lock()
-	sid := c.currentSession
-	c.mu.Unlock()
-	if sid != "" {
-		_ = c.agent.Cancel(sid)
 	}
 }
 
@@ -416,105 +226,6 @@ func (c *ClaudeBridge) SetConfig(patch ClaudeConfigPatch) {
 	}
 }
 
-// ListModels returns the models advertised by the ACP agent. Because the agent
-// only reports models in its session/new and session/load responses, we make
-// sure the current session is loaded first so the cache is populated.
-func (c *ClaudeBridge) ListModels() ([]AgentModelOption, error) {
-	c.mu.Lock()
-	sessionID := c.currentSession
-	cwd := c.cwd
-	c.mu.Unlock()
-	if sessionID != "" {
-		if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
-			return nil, err
-		}
-	} else if !c.agent.IsRunning() {
-		if err := c.Start(cwd); err != nil {
-			return nil, err
-		}
-	}
-	return c.agent.ListModels()
-}
-
-func (c *ClaudeBridge) SetModel(model string) error {
-	model = canonicalClaudeModel(model)
-	if model == "" {
-		return fmt.Errorf("model is required")
-	}
-	c.mu.Lock()
-	sessionID := c.currentSession
-	cwd := c.cwd
-	c.mu.Unlock()
-	if sessionID == "" {
-		return fmt.Errorf("no active Claude session to set model")
-	}
-	if err := c.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
-		return err
-	}
-	c.agentMu.Lock()
-	err := c.agent.SetModel(sessionID, model)
-	c.agentMu.Unlock()
-	if err != nil {
-		return err
-	}
-	c.mu.Lock()
-	c.selectedModel = model
-	c.sessionModel = model
-	c.mu.Unlock()
-	return nil
-}
-
-// Prompt sends a user turn to the active session. If no session is open,
-// a new one is created (and a synthetic claude.init notification is fired
-// so the iOS UI mirrors the previous stream-json behavior).
-func (c *ClaudeBridge) Prompt(text string, images []string) (string, error) {
-	c.mu.Lock()
-	sid := c.currentSession
-	cwd := c.cwd
-	c.mu.Unlock()
-
-	if sid == "" {
-		newSid, err := c.NewSession(cwd)
-		if err != nil {
-			return "", err
-		}
-		sid = newSid
-	} else if err := c.ensureAgentSessionLoaded(sid, cwd); err != nil {
-		return "", fmt.Errorf("session/load before prompt: %w", err)
-	}
-	opID := newOperationID("claude")
-
-	c.mu.Lock()
-	c.taskRunning = true
-	c.taskStartedAt = time.Now()
-	c.currentOperationID = opID
-	c.lastNotifications = nil
-	c.mu.Unlock()
-
-	go func() {
-		result, err := c.agent.Prompt(sid, text, images)
-		if err != nil {
-			log.Printf("[claude] session/prompt failed: %v", err)
-			c.emit("error", map[string]interface{}{
-				"error":     err.Error(),
-				"sessionId": sid,
-			})
-		}
-		c.mu.Lock()
-		c.taskRunning = false
-		c.mu.Unlock()
-		c.emit("turn/completed", map[string]interface{}{
-			"sessionId": sid,
-			"success":   err == nil,
-			"result":    result,
-		})
-		c.mu.Lock()
-		c.currentOperationID = ""
-		c.mu.Unlock()
-	}()
-	return opID, nil
-}
-
 func (c *ClaudeBridge) NewSession(cwd string) (string, error) {
 	if cwd == "" {
 		c.mu.Lock()
@@ -581,13 +292,6 @@ func (c *ClaudeBridge) NewSession(cwd string) (string, error) {
 		"availableModels": agentModelList(c.agent),
 	})
 	return newSid, nil
-}
-
-// agentModelList is a small helper so init/taskStatus payloads can carry the
-// captured model options (ListModels never errors).
-func agentModelList(a *AcpAgent) []AgentModelOption {
-	models, _ := a.ListModels()
-	return models
 }
 
 // LoadSession resumes a session by ID. This is the single canonical load path:
@@ -686,17 +390,6 @@ func (c *ClaudeBridge) LoadSession(sessionId, cwd string) (map[string]interface{
 	}, nil
 }
 
-func (c *ClaudeBridge) ensureAgentSessionLoaded(sessionId, cwd string) error {
-	c.agentMu.Lock()
-	defer c.agentMu.Unlock()
-	if !c.agent.IsRunning() {
-		if !ensureClaudeAcp(c.agent.CheckAvailable) {
-			return fmt.Errorf("%s not found in PATH; install with `npm install -g %s`", claudeAcpCommand(), claudeAcpPackage)
-		}
-	}
-	return c.agent.EnsureLoaded(sessionId, cwd)
-}
-
 // ListSessions returns Claude sessions across all projects (matching the
 // behavior of `claude /resume`). Reads directly from `~/.claude/projects/`.
 func (c *ClaudeBridge) ListSessions(cwd string) (map[string]interface{}, error) {
@@ -779,7 +472,9 @@ func (c *ClaudeBridge) RenameSession(sessionId, title, cwd string) error {
 }
 
 // TaskStatus returns the current task state for clients to recover after
-// reconnecting from background or a page refresh.
+// reconnecting from background or a page refresh. It extends the shared
+// acpChatBridge payload with Claude's effort/permissionMode config vocabulary,
+// the session-observed model/mode, and the advertised permission modes.
 func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 	c.mu.Lock()
 	delegate := c.permissionDelegate
@@ -792,6 +487,13 @@ func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 		"permissionMode": canonicalClaudePermissionMode(c.selectedMode),
 	}
 	capabilities := c.Capabilities()
+	running := c.taskRunning
+	operationID := c.currentOperationID
+	sessionID := c.currentSession
+	startedAt := c.taskStartedAt
+	cwd := c.cwd
+	sessionModel := c.sessionModel
+	sessionMode := c.sessionMode
 	c.mu.Unlock()
 
 	pendingPermList := []map[string]interface{}{}
@@ -800,42 +502,22 @@ func (c *ClaudeBridge) TaskStatus() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"ok":             true,
-		"running":        c.taskRunning,
-		"operationId":    c.currentOperationID,
-		"sessionId":      c.currentSession,
-		"startedAt":      c.taskStartedAt.UnixMilli(),
-		"recentEvents":   events,
-		"pendingPerms":   pendingPermList,
-		"cwd":            c.cwd,
-		"config":         config,
-		"capabilities":   capabilities,
-		"model":          config["model"],
-		"effort":         config["effort"],
-		"permissionMode": config["permissionMode"],
-		"sessionModel":    c.sessionModel,
-		"sessionMode":     c.sessionMode,
+		"ok":              true,
+		"running":         running,
+		"operationId":     operationID,
+		"sessionId":       sessionID,
+		"startedAt":       startedAt.UnixMilli(),
+		"recentEvents":    events,
+		"pendingPerms":    pendingPermList,
+		"cwd":             cwd,
+		"config":          config,
+		"capabilities":    capabilities,
+		"model":           config["model"],
+		"effort":          config["effort"],
+		"permissionMode":  config["permissionMode"],
+		"sessionModel":    sessionModel,
+		"sessionMode":     sessionMode,
 		"availableModes":  c.agent.ListModes(),
 		"availableModels": agentModelList(c.agent),
-	}
-}
-
-func (c *ClaudeBridge) emit(method string, params interface{}) {
-	// Cache the notification for replay on reconnect.
-	c.mu.Lock()
-	payload := attachOperationID(params, c.currentOperationID)
-	c.lastNotifications = append(c.lastNotifications, cachedNotification{
-		Method: method,
-		Params: payload,
-		Time:   time.Now().UnixMilli(),
-	})
-	// Trim to ring buffer size.
-	if len(c.lastNotifications) > maxCachedNotifications {
-		c.lastNotifications = c.lastNotifications[len(c.lastNotifications)-maxCachedNotifications:]
-	}
-	c.mu.Unlock()
-
-	if c.OnNotification != nil {
-		c.OnNotification(method, payload)
 	}
 }

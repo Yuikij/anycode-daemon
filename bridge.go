@@ -52,6 +52,14 @@ type AgentBridge struct {
 	pending     map[agentRequestKey]chan agentResult
 	initialized bool
 
+	// writeMu serializes writes to the agent's stdin pipe. It is deliberately
+	// separate from mu: a write can block indefinitely when the child stops
+	// draining stdin (full pipe buffer), and holding mu across that write would
+	// deadlock the whole bridge — the stdout reader (handleMessage), Respond,
+	// Stop and the cmd.Wait cleanup goroutine all need mu, so responses could
+	// never be delivered and the wedged child could never be killed.
+	writeMu sync.Mutex
+
 	// Callbacks set by the server
 	OnNotification func(method string, params interface{})
 	OnRequest      func(id interface{}, method string, params interface{})
@@ -101,6 +109,9 @@ func (b *AgentBridge) StartProcess(command string, args []string, cwd string, en
 	cmd := exec.Command(command, args...)
 	cmd.Dir = cwd
 	cmd.Env = buildAgentEnv(env)
+	// Own process group so Stop can kill the agent's whole tree, not just the
+	// direct child (see agentSysProcAttr).
+	cmd.SysProcAttr = agentSysProcAttr()
 
 	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
@@ -201,11 +212,14 @@ func (b *AgentBridge) Start(command string, args []string, cwd string) error {
 	}
 	b.mu.Lock()
 	b.initialized = true
+	stdin := b.stdin
 	b.mu.Unlock()
 
-	b.mu.Lock()
-	_ = b.stdin.Encode(map[string]interface{}{"jsonrpc": "2.0", "method": "initialized"})
-	b.mu.Unlock()
+	if stdin != nil {
+		b.writeMu.Lock()
+		_ = stdin.Encode(map[string]interface{}{"jsonrpc": "2.0", "method": "initialized"})
+		b.writeMu.Unlock()
+	}
 
 	return nil
 }
@@ -221,7 +235,7 @@ func (b *AgentBridge) Stop() {
 		return
 	}
 
-	_ = cmd.Process.Kill()
+	_ = killAgentProcess(cmd.Process)
 
 	select {
 	case <-done:
@@ -255,21 +269,34 @@ func (b *AgentBridge) SendContext(ctx context.Context, method string, params int
 	}
 
 	b.mu.Lock()
-
 	b.requestID++
 	id := b.requestID
 	generation := b.generation
 	key := agentRequestKey{Generation: generation, ID: float64(id)}
 	ch := make(chan agentResult, 1)
 	b.pending[key] = ch
+	stdin := b.stdin
+	b.mu.Unlock()
+
+	if stdin == nil {
+		b.mu.Lock()
+		delete(b.pending, key)
+		b.mu.Unlock()
+		return nil, fmt.Errorf("agent is not running")
+	}
+
 	msg := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      id,
 		"method":  method,
 		"params":  params,
 	}
-	err := b.stdin.Encode(msg)
-	b.mu.Unlock()
+	// Write outside mu (see writeMu doc). A wedged pipe blocks only this
+	// request; Stop can still take mu and kill the child, which unblocks the
+	// write with a pipe error.
+	b.writeMu.Lock()
+	err := stdin.Encode(msg)
+	b.writeMu.Unlock()
 
 	if err != nil {
 		b.mu.Lock()
@@ -301,7 +328,9 @@ func formatAgentRPCError(rpcErr *RpcError) error {
 	if details := rpcErrorDetails(rpcErr.Data); details != "" {
 		message = fmt.Sprintf("%s: %s", message, details)
 	}
-	return fmt.Errorf("Codex error %d: %s", rpcErr.Code, message)
+	// This bridge is shared by every stdio agent (codex/claude/cursor/trae),
+	// so the error label must stay agent-neutral.
+	return fmt.Errorf("agent error %d: %s", rpcErr.Code, message)
 }
 
 func rpcErrorDetails(data interface{}) string {
@@ -319,12 +348,15 @@ func rpcErrorDetails(data interface{}) string {
 }
 
 func (b *AgentBridge) Respond(id interface{}, result interface{}) error {
-	if !b.IsRunning() {
+	b.mu.Lock()
+	stdin := b.stdin
+	b.mu.Unlock()
+	if stdin == nil {
 		return nil
 	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.stdin.Encode(map[string]interface{}{
+	b.writeMu.Lock()
+	defer b.writeMu.Unlock()
+	return stdin.Encode(map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      id,
 		"result":  result,

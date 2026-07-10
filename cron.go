@@ -44,7 +44,18 @@ func NewCronManager(s *Server) *CronManager {
 }
 
 func (cm *CronManager) Start(projectRoot string) {
+	// Start is also called on project.open switches. Drop every job that was
+	// loaded for the previous project first — otherwise old jobs keep firing
+	// and saveJobs would merge them into the NEW project's crons.json.
+	cm.mu.Lock()
+	for id, eid := range cm.entries {
+		cm.c.Remove(eid)
+		delete(cm.entries, id)
+	}
+	cm.jobs = make(map[string]CronJobConfig)
 	cm.cfgPath = filepath.Join(projectRoot, ".anycode", "crons.json")
+	cm.mu.Unlock()
+
 	_ = os.MkdirAll(filepath.Dir(cm.cfgPath), 0755)
 
 	cm.loadJobs()
@@ -125,17 +136,21 @@ func (cm *CronManager) executeJob(jobID string) {
 	sessionID := job.SessionID
 	var err error
 
+	// projectRoot is mutated by project.open on other goroutines; read it once
+	// through the locked accessor.
+	projectRoot, _ := cm.server.currentProjectState()
+
 	switch job.Agent {
 	case "claude":
 		if sessionID == "" {
-			sessionID, err = cm.server.claude.NewSession(cm.server.projectRoot)
+			sessionID, err = cm.server.claude.NewSession(projectRoot)
 			if err == nil {
 				cm.updateJobSession(jobID, sessionID)
 			}
 		}
 		if sessionID != "" {
 			if cm.server.claude.SessionId() != sessionID {
-				_, _ = cm.server.claude.LoadSession(sessionID, cm.server.projectRoot)
+				_, _ = cm.server.claude.LoadSession(sessionID, projectRoot)
 			}
 			_, err = cm.server.claude.Prompt(job.Prompt, nil)
 		}
@@ -143,10 +158,10 @@ func (cm *CronManager) executeJob(jobID string) {
 	case "codex":
 		if sessionID == "" {
 			if !cm.server.codex.IsRunning() {
-				_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), cm.server.projectRoot)
+				_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), projectRoot)
 			}
 			// Request new thread
-			res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
+			res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": projectRoot})
 			if err == nil && res != nil {
 				if rMap, ok := res.(map[string]interface{}); ok {
 					if id, ok := rMap["id"].(string); ok {
@@ -193,7 +208,22 @@ func (cm *CronManager) ListJobs() []CronJobConfig {
 	return list
 }
 
+// cronSupportedAgents lists the agents executeJob knows how to drive. Reject
+// anything else at create/update time so an unsupported agent (e.g. cursor,
+// trae) fails loudly instead of silently doing nothing at fire time.
+var cronSupportedAgents = map[string]bool{"claude": true, "codex": true}
+
+func validateCronAgent(agent string) error {
+	if cronSupportedAgents[agent] {
+		return nil
+	}
+	return fmt.Errorf("unsupported cron agent %q (supported: claude, codex)", agent)
+}
+
 func (cm *CronManager) CreateJob(name, agent, sessionID, prompt, expression string, enabled bool) (CronJobConfig, error) {
+	if err := validateCronAgent(agent); err != nil {
+		return CronJobConfig{}, err
+	}
 	b := make([]byte, 4)
 	rand.Read(b)
 	id := hex.EncodeToString(b)
@@ -233,14 +263,15 @@ func (cm *CronManager) CreateJob(name, agent, sessionID, prompt, expression stri
 func (cm *CronManager) createSessionForJob(jobID, agent string) {
 	// Runs in a goroutine
 	sessionID := ""
+	projectRoot, _ := cm.server.currentProjectState()
 	switch agent {
 	case "claude":
-		sessionID, _ = cm.server.claude.NewSession(cm.server.projectRoot)
+		sessionID, _ = cm.server.claude.NewSession(projectRoot)
 	case "codex":
 		if !cm.server.codex.IsRunning() {
-			_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), cm.server.projectRoot)
+			_ = cm.server.codex.Start(codexCommand(), codexAppServerArgs(), projectRoot)
 		}
-		res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": cm.server.projectRoot})
+		res, err := cm.server.codex.Send("thread/start", map[string]interface{}{"cwd": projectRoot})
 		if err == nil && res != nil {
 			if rMap, ok := res.(map[string]interface{}); ok {
 				if id, ok := rMap["id"].(string); ok {
@@ -275,6 +306,9 @@ func (cm *CronManager) UpdateJob(id, name, agent, sessionID, prompt, expression 
 		job.Name = name
 	}
 	if agent != "" {
+		if err := validateCronAgent(agent); err != nil {
+			return job, err
+		}
 		job.Agent = agent
 	}
 	// We allow sessionID to be empty, so we must always set it if passed

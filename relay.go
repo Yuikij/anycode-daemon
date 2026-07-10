@@ -70,7 +70,7 @@ func (s *Server) relayLoop(relayURL, deviceToken string) {
 		backoff = time.Second
 
 		// Blocks until the relay link drops; treats the link like a local client.
-		s.serveConn(conn, "relay")
+		s.serveConn(conn, "relay", true)
 
 		log.Printf("[relay] disconnected; reconnecting in %s", backoff)
 		time.Sleep(backoff)

@@ -124,14 +124,19 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[server] upgrade error: %v", err)
 		return
 	}
-	s.serveConn(conn, r.Host)
+	s.serveConn(conn, r.Host, false)
 }
 
 // serveConn runs the JSON-RPC message loop for a single websocket connection.
 // It is shared by inbound clients (handleWS) and the outbound relay agent link
-// (relay.go), so the relay connection is treated exactly like a local client 闁?
+// (relay.go), so the relay connection is treated exactly like a local client —
 // the remote client still performs the `auth` handshake end-to-end.
-func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
+//
+// isRelay MUST only be true for the outbound connection the daemon itself
+// dialed to the relay (relay.go). It gates relay-only privileges (proxy.fetch,
+// app-level keepalive, larger send buffer) and must never be derived from
+// client-controlled input such as the Host header.
+func (s *Server) serveConn(conn *websocket.Conn, hostLabel string, isRelay bool) {
 	log.Println("[server] client connected")
 
 	conn.SetReadLimit(10 * 1024 * 1024)
@@ -139,7 +144,6 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 	// The relay link multiplexes every remote client and rides the higher-latency
 	// Cloudflare path, so it needs a much larger send buffer to absorb agent
 	// streaming bursts without dropping.
-	isRelay := hostLabel == "relay"
 	sendBuffer := clientSendBuffer
 	if isRelay {
 		sendBuffer = relaySendBuffer
@@ -230,7 +234,7 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 		if req.Method == "auth" {
 			params := getParams(req.Params)
 			clientToken := getParamString(params, "token")
-			if clientToken == s.token {
+			if tokenEqual(clientToken, s.token) {
 				s.mu.Lock()
 				client.authed = true
 				s.mu.Unlock()
@@ -261,10 +265,21 @@ func (s *Server) serveConn(conn *websocket.Conn, hostLabel string) {
 			continue
 		}
 
-		// proxy.fetch is called by the authenticated relay worker to serve the
-		// built-in browser over the agent WebSocket. The underlying HTTP proxy
-		// handlers still validate the daemon token from query/cookies.
+		// proxy.fetch serves the built-in browser. It is only allowed on the
+		// outbound relay link (where the relay worker already authorized the
+		// request against the device before forwarding) or on an authed local
+		// client. It must NOT be pre-auth for arbitrary inbound connections:
+		// handleRelayProxyFetch injects the daemon token itself, so exposing it
+		// unauthenticated would hand out an SSRF proxy into localhost/LAN.
 		if req.Method == "proxy.fetch" {
+			s.mu.RLock()
+			proxyAllowed := isRelay || client.authed
+			s.mu.RUnlock()
+			if !proxyAllowed {
+				reply, _ := json.Marshal(makeError(id, 401, "Not authenticated"))
+				client.send(reply)
+				continue
+			}
 			p := getParams(req.Params)
 			result, herr := s.handleRelayProxyFetch(p)
 			var reply []byte

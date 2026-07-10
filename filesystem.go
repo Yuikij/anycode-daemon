@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -115,6 +116,10 @@ func detectLanguage(filePath string) string {
 }
 
 func browseDirectory(dirPath string, showHidden bool) (*BrowseResult, error) {
+	if runtime.GOOS == "windows" && (dirPath == "/" || dirPath == `\`) {
+		return browseWindowsDrives()
+	}
+
 	resolved, err := filepath.Abs(dirPath)
 	if err != nil {
 		return nil, err
@@ -162,7 +167,48 @@ func browseDirectory(dirPath string, showHidden bool) (*BrowseResult, error) {
 
 	return &BrowseResult{
 		Path:   resolved,
-		Parent: filepath.Dir(resolved),
+		Parent: browseParent(resolved),
+		Items:  items,
+	}, nil
+}
+
+func browseParent(path string) string {
+	parent := filepath.Dir(path)
+	if runtime.GOOS == "windows" && isWindowsVolumeRoot(path) {
+		return "/"
+	}
+	return parent
+}
+
+func isWindowsVolumeRoot(path string) bool {
+	volume := filepath.VolumeName(path)
+	if volume == "" {
+		return false
+	}
+	clean := filepath.Clean(path)
+	return strings.EqualFold(clean, filepath.Clean(volume+`\`))
+}
+
+func browseWindowsDrives() (*BrowseResult, error) {
+	items := make([]FileEntry, 0, 26)
+	for letter := 'A'; letter <= 'Z'; letter++ {
+		path := fmt.Sprintf("%c:\\", letter)
+		info, err := os.Stat(path)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		name := fmt.Sprintf("%c:", letter)
+		items = append(items, FileEntry{
+			Name:     name,
+			Path:     path,
+			Type:     "directory",
+			Size:     info.Size(),
+			Modified: info.ModTime().UTC().Format("2006-01-02T15:04:05.000Z"),
+		})
+	}
+	return &BrowseResult{
+		Path:   "/",
+		Parent: "",
 		Items:  items,
 	}, nil
 }
@@ -421,4 +467,3 @@ func getProjectInfo(rootPath string) *ProjectInfo {
 
 	return &ProjectInfo{Name: name, Root: rootPath, IsGit: isGit, FileCount: fileCount}
 }
-

@@ -17,7 +17,7 @@ import (
 
 func (s *Server) handleProxyOpen(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
-	if token != s.token {
+	if !tokenEqual(token, s.token) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -52,7 +52,7 @@ func (s *Server) handleProxyPrefix(w http.ResponseWriter, r *http.Request) {
 
 // handleOriginProxy serves the subdomain-root relay mode. Each target origin
 // gets its own proxy subdomain, so the worker can serve that origin at the
-// subdomain ROOT and pass us the origin directly 闁?no `/__anycode_proxy/http/
+// subdomain ROOT and pass us the origin directly — no `/__anycode_proxy/http/
 // host/` path prefix, and therefore no need to rewrite every URL in the page.
 // Root-relative ("/_next/...") and relative URLs resolve naturally; we only
 // neutralize absolute same-origin URLs (see rewriteTextResponseRoot).
@@ -229,8 +229,8 @@ func (s *Server) prepareRelayProxyRequest(req *http.Request) {
 //
 // The built-in browser proxies through this daemon. When the user has set an
 // HTTP/HTTPS proxy (a common setup, e.g. in mainland China), DefaultTransport
-// would forward *every* request 闁?including `http://localhost:3000` for a local
-// dev server 闁?to that upstream proxy, which can't reach the dev machine's
+// would forward *every* request — including `http://localhost:3000` for a local
+// dev server — to that upstream proxy, which can't reach the dev machine's
 // loopback. The result: the built-in browser can't open the remote machine's
 // localhost over the relay. Public targets still honor the configured proxy.
 var proxyTransport = newProxyTransport()
@@ -400,11 +400,11 @@ func proxyPathForTarget(target *url.URL) string {
 }
 
 func (s *Server) hasProxyAuth(r *http.Request) bool {
-	if r.URL.Query().Get("token") == s.token {
+	if tokenEqual(r.URL.Query().Get("token"), s.token) {
 		return true
 	}
 	cookie, err := r.Cookie(proxyTokenCookie)
-	return err == nil && cookie.Value == s.token
+	return err == nil && tokenEqual(cookie.Value, s.token)
 }
 
 func setProxyCookie(w http.ResponseWriter, name, value string) {
@@ -521,8 +521,8 @@ func rewriteLocationHeaderRoot(resp *http.Response, target *url.URL, incomingSch
 // replacement for per-attribute rule matching. Because the target origin is
 // served at the subdomain root, root-relative ("/_next/...") and relative URLs
 // resolve correctly with NO rewriting. We only neutralize absolute URLs that
-// point back at the target origin 闁?otherwise the browser would try to reach
-// the dev machine's origin directly (unreachable) 闁?and upgrade ws:// links.
+// point back at the target origin — otherwise the browser would try to reach
+// the dev machine's origin directly (unreachable) — and upgrade ws:// links.
 func rewriteTextResponseRoot(resp *http.Response, target *url.URL, incomingScheme, incomingHost string) error {
 	contentType := strings.ToLower(resp.Header.Get("Content-Type"))
 	if !isRewriteableContent(contentType) || resp.Body == nil || incomingHost == "" {
@@ -701,7 +701,7 @@ func injectBaseTag(html, baseHref string) string {
 			return html[:pos] + tag + html[pos:]
 		}
 	}
-	// No <head> tag 闁?prepend to body as fallback.
+	// No <head> tag — prepend to body as fallback.
 	if idx := strings.Index(html, "<body"); idx >= 0 {
 		return html[:idx] + "<head>" + tag + "</head>" + html[idx:]
 	}

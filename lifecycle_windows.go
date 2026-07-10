@@ -19,6 +19,22 @@ func detachSysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{CreationFlags: _DETACHED_PROCESS | _CREATE_NEW_PROCESS_GROUP}
 }
 
+// agentSysProcAttr gives a spawned agent CLI its own process group. Windows has
+// no POSIX process groups to signal, but a separate group at least isolates
+// console ctrl events from the daemon.
+func agentSysProcAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{CreationFlags: _CREATE_NEW_PROCESS_GROUP}
+}
+
+// killAgentProcess kills the agent process. Windows cannot signal a whole
+// process group from here, so this only kills the direct child.
+func killAgentProcess(proc *os.Process) error {
+	if proc == nil {
+		return nil
+	}
+	return proc.Kill()
+}
+
 // processAlive reports whether a process with the given PID is still running.
 func processAlive(pid int) bool {
 	h, err := syscall.OpenProcess(_PROCESS_QUERY_LIMITED, false, uint32(pid))

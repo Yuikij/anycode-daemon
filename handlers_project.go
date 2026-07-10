@@ -18,4 +18,3 @@ func (s *Server) handleProjectOpen(req RpcRequest, client *wsClient) (interface{
 	return s.currentProjectInfo(), nil
 
 }
-

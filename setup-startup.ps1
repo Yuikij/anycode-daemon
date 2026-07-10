@@ -1,8 +1,8 @@
-$targetDir = "d:\code\anycode\daemon-go"
+$targetDir = $PSScriptRoot
 $vbsPath = "$targetDir\start-hidden.vbs"
 $shortcutPath = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\AnyCodeDaemon.lnk"
 
-$vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`r`nWshShell.CurrentDirectory = `"$targetDir`"`r`nWshShell.Run `"cmd /c .\anycode-daemon.exe --port 9527 > daemon.log 2>&1`", 0, False"
+$vbsContent = "Set WshShell = CreateObject(`"WScript.Shell`")`r`nSet fso = CreateObject(`"Scripting.FileSystemObject`")`r`nWshShell.CurrentDirectory = fso.GetParentFolderName(WScript.ScriptFullName)`r`nWshShell.Run `"cmd /c .\anycode-daemon.exe --port 9527 > daemon.log 2>&1`", 0, False"
 
 [System.IO.File]::WriteAllText($vbsPath, $vbsContent, [System.Text.Encoding]::ASCII)
 

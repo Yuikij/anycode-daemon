@@ -23,15 +23,15 @@ const (
 	relayAuthCookie   = "anycode_relay_proxy_auth"
 )
 
-// WebSocket keepalive. The relay link (daemon 闁?Cloudflare Durable Object) and
+// WebSocket keepalive. The relay link (daemon — Cloudflare Durable Object) and
 // local browser/app clients can silently die (NAT/idle timeouts, dropped
 // Wi-Fi) without ever delivering a TCP FIN. Without a read deadline the daemon
-// would block forever in ReadMessage and never notice 闁?which is exactly the
+// would block forever in ReadMessage and never notice — which is exactly the
 // classic symptom: the agent link is dead but never reconnects.
 //
 // We send a WebSocket ping every pingPeriod and require *some* inbound frame
 // (a pong, an RPC, or the client heartbeat) within pongWait, otherwise the read
-// fails and the connection loop exits 闁?triggering relayLoop's reconnect.
+// fails and the connection loop exits — triggering relayLoop's reconnect.
 //
 // Cloudflare's runtime auto-responds to ping frames with pongs, and both
 // browsers (DOM WebSocket) and iOS (URLSessionWebSocketTask) auto-pong, so this
@@ -556,7 +556,7 @@ func (s *Server) readShare(id string) (interface{}, error) {
 }
 
 func (s *Server) handleShare(w http.ResponseWriter, r *http.Request) {
-	// Accept both /share/<id> and /share/<deviceId>/<id> 闁?the id is the last
+	// Accept both /share/<id> and /share/<deviceId>/<id> — the id is the last
 	// path segment.
 	trimmed := strings.Trim(strings.TrimPrefix(r.URL.Path, "/share/"), "/")
 	segs := strings.Split(trimmed, "/")

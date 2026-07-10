@@ -1,41 +1,29 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
-	"sync"
 	"time"
 )
 
 // TraeBridge runs the Trae CLI through the standard Agent Client Protocol (ACP)
-// using `traecli acp serve` (Trae's built-in ACP server mode). It mirrors
-// CursorBridge — both are pure ACP agents with no on-disk JSONL transcript and
-// share the interactive permission flow and current-turn replay buffer. The
-// only difference is the spawn command and that Trae advertises its own set of
-// modes (rather than Cursor's fixed agent/plan/ask), so mode handling here is
-// generic pass-through driven by what the agent reports in its session response.
+// using `traecli acp serve` (Trae's built-in ACP server mode). All the shared
+// ACP plumbing (permission flow, current-turn replay buffer, session
+// lifecycle) lives in the embedded acpChatBridge; Trae's genuine differences
+// are the spawn command, that it advertises its own set of modes (rather than
+// Cursor's fixed agent/plan/ask, so mode handling is generic pass-through
+// driven by what the agent reports), and its on-disk session store used for
+// session listing.
 type TraeBridge struct {
-	mu      sync.Mutex
-	agentMu sync.Mutex
-
-	agent *AcpAgent
-
-	cwd            string
-	currentSession string
-	selectedModel  string
-	selectedMode   string
-
-	permissionDelegate ClaudePermissionDelegate
-
-	taskRunning        bool
-	taskStartedAt      time.Time
-	currentOperationID string
-	lastNotifications  []cachedNotification
-
-	OnNotification func(method string, params interface{})
+	acpChatBridge
 }
 
 // traeCommand resolves the Trae CLI binary. The trae.cn installer exposes it as
@@ -45,26 +33,30 @@ func traeCommand() string {
 	if v := strings.TrimSpace(os.Getenv("ANYCODE_TRAE_BIN")); v != "" {
 		return v
 	}
-	for _, candidate := range []string{"traecli", "trae-cli", "trae-agent", "ta"} {
+	candidates := []string{"traecli", "trae-cli", "trae-agent", "ta"}
+	for _, candidate := range candidates {
 		if _, err := exec.LookPath(candidate); err == nil {
 			return candidate
 		}
 	}
+	if path := resolveCommandInCommonAgentBins(candidates...); path != "" {
+		return path
+	}
+
+	if localAppData := os.Getenv("LOCALAPPDATA"); localAppData != "" {
+		for _, candidate := range candidates {
+			exePath := filepath.Join(localAppData, "trae-cli", "bin", candidate+".exe")
+			if _, err := os.Stat(exePath); err == nil {
+				return exePath
+			}
+		}
+	}
+
 	return "traecli"
 }
 
 func canonicalTraeModel(value string) string {
 	return strings.TrimSpace(value)
-}
-
-// effectiveModel resolves the model to surface to the UI: the user's explicit
-// selection when set, otherwise the model the Trae ACP agent reported as current
-// in its latest session response.
-func (t *TraeBridge) effectiveModel(selected string) string {
-	if selected != "" {
-		return selected
-	}
-	return t.agent.CurrentModelID()
 }
 
 // canonicalTraeMode normalizes a mode value. Unlike Cursor we don't pin a fixed
@@ -74,18 +66,9 @@ func canonicalTraeMode(value string) string {
 	return strings.TrimSpace(value)
 }
 
-// effectiveMode resolves the mode to surface: the user's explicit selection when
-// set, otherwise the mode the Trae ACP agent reported as current.
-func (t *TraeBridge) effectiveMode(selected string) string {
-	if selected != "" {
-		return selected
-	}
-	return t.agent.CurrentModeID()
-}
-
 func NewTraeBridge() *TraeBridge {
 	t := &TraeBridge{}
-	t.agent = NewAcpAgent(AcpAgentConfig{
+	t.initAcpChatBridge(AcpAgentConfig{
 		ID:          "trae",
 		Label:       "Trae",
 		Command:     traeCommand(),
@@ -99,416 +82,285 @@ func NewTraeBridge() *TraeBridge {
 		// Permission requests are surfaced to the UI via OnPermissionRequest,
 		// not blanket auto-approved.
 		AutoApprovePermissions: false,
+	}, acpChatBridgeHooks{
+		id:    "trae",
+		label: "Trae",
+		startUnavailableError: func() error {
+			return fmt.Errorf("%s not found in PATH; install the Trae CLI from https://docs.trae.cn/cli (or set ANYCODE_TRAE_BIN)", traeCommand())
+		},
+		loadUnavailableError: func() error {
+			return fmt.Errorf("%s not found in PATH; install the Trae CLI from https://docs.trae.cn/cli", traeCommand())
+		},
+		canonicalModel: canonicalTraeModel,
+		canonicalMode:  canonicalTraeMode,
 	})
-	t.agent.OnNotification = func(method string, params interface{}) {
-		if p, ok := params.(map[string]interface{}); ok {
-			if sid, _ := p["sessionId"].(string); sid != "" {
-				t.mu.Lock()
-				if t.currentSession == "" {
-					t.currentSession = sid
-				}
-				t.mu.Unlock()
-			}
+	// The mode surfaced to the UI falls back to whatever the Trae agent
+	// reported as current when the user hasn't picked one explicitly.
+	t.hooks.effectiveMode = func(selected string) string {
+		if selected != "" {
+			return selected
 		}
-		t.emit(method, params)
-		if method == "turn/completed" || method == "turn/failed" || method == "turn/aborted" || method == "turn/interrupted" {
-			t.mu.Lock()
-			t.taskRunning = false
-			t.mu.Unlock()
-		}
+		return t.agent.CurrentModeID()
 	}
-	t.agent.OnPermissionRequest = t.handlePermissionRequest
+	t.hooks.newSession = t.NewSession
 	return t
 }
 
-func (t *TraeBridge) SetPermissionDelegate(delegate ClaudePermissionDelegate) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.permissionDelegate = delegate
-}
-
-func (t *TraeBridge) handlePermissionRequest(id interface{}, params map[string]interface{}) {
-	t.mu.Lock()
-	delegate := t.permissionDelegate
-	t.mu.Unlock()
-	if delegate != nil {
-		delegate.HandleRequest(id, params)
+// traeSessionsRoot returns the directory where the Trae CLI persists its
+// session store. traecli writes one `<session-id>/session.json` per
+// conversation under the OS cache dir. It returns the first candidate that
+// exists on disk, falling back to the most-canonical path otherwise. An
+// explicit override is supported for non-standard installs.
+func traeSessionsRoot() string {
+	if env := os.Getenv("ANYCODE_TRAE_SESSIONS_DIR"); env != "" {
+		return env
 	}
-}
-
-func (t *TraeBridge) RespondPermission(requestId, optionId string, cancelled bool) error {
-	t.mu.Lock()
-	delegate := t.permissionDelegate
-	t.mu.Unlock()
-	if delegate == nil {
-		return fmt.Errorf("permission delegate not configured")
-	}
-	return delegate.Resolve(requestId, optionId, cancelled)
-}
-
-func (t *TraeBridge) SetCwd(cwd string) {
-	t.mu.Lock()
-	t.cwd = cwd
-	t.mu.Unlock()
-	t.agent.SetCwd(cwd)
-}
-
-func (t *TraeBridge) IsRunning() bool { return t.agent.IsRunning() }
-func (t *TraeBridge) Available() bool { return t.agent.Available() }
-
-func (t *TraeBridge) SessionId() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.currentSession
-}
-
-func (t *TraeBridge) RestoreSession(sessionId string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.currentSession = sessionId
-}
-
-func (t *TraeBridge) SelectedModel() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.selectedModel
-}
-
-func (t *TraeBridge) SelectedMode() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.selectedMode
-}
-
-func (t *TraeBridge) ConfigSnapshot() map[string]interface{} {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return map[string]interface{}{
-		"model": canonicalTraeModel(t.selectedModel),
-		"mode":  canonicalTraeMode(t.selectedMode),
-	}
-}
-
-func (t *TraeBridge) Capabilities() map[string]bool {
-	caps := t.agent.Capabilities()
-	return map[string]bool{
-		"canSetModel": caps.CanSetModel,
-		"canSetMode":  caps.CanSetMode,
-	}
-}
-
-func (t *TraeBridge) CheckAvailable() bool {
-	return t.agent.CheckAvailable()
-}
-
-func (t *TraeBridge) Start(cwd string) error {
-	t.mu.Lock()
-	if cwd != "" {
-		t.cwd = cwd
-	}
-	t.mu.Unlock()
-	if cwd != "" {
-		t.agent.SetCwd(cwd)
-	}
-	if !t.agent.CheckAvailable() {
-		return fmt.Errorf("%s not found in PATH; install the Trae CLI from https://docs.trae.cn/cli (or set ANYCODE_TRAE_BIN)", traeCommand())
-	}
-	t.agentMu.Lock()
-	err := t.agent.Start()
-	t.agentMu.Unlock()
-	return err
-}
-
-func (t *TraeBridge) Stop() {
-	t.agent.Stop()
-	t.mu.Lock()
-	delegate := t.permissionDelegate
-	t.mu.Unlock()
-	resolved := []map[string]interface{}{}
-	if delegate != nil {
-		resolved = delegate.Clear("stopped")
-	}
-	t.mu.Lock()
-	t.currentSession = ""
-	t.taskRunning = false
-	t.taskStartedAt = time.Time{}
-	t.currentOperationID = ""
-	t.lastNotifications = nil
-	t.mu.Unlock()
-	for _, notif := range resolved {
-		t.emit("permission/resolved", notif)
-	}
-}
-
-func (t *TraeBridge) Cancel() {
-	t.mu.Lock()
-	sid := t.currentSession
-	t.mu.Unlock()
-	if sid != "" {
-		_ = t.agent.Cancel(sid)
-	}
-}
-
-// ListModels returns the models advertised by the Trae ACP agent. Trae (like
-// Cursor / claude-code-acp) only reports models in its session/new and
-// session/load responses, so ensure the current session is loaded first to
-// populate the cache.
-func (t *TraeBridge) ListModels() ([]AgentModelOption, error) {
-	t.mu.Lock()
-	sessionID := t.currentSession
-	cwd := t.cwd
-	t.mu.Unlock()
-	if sessionID != "" {
-		if err := t.ensureAgentSessionLoaded(sessionID, cwd); err != nil {
-			return nil, err
-		}
-	} else if !t.agent.IsRunning() {
-		if err := t.Start(cwd); err != nil {
-			return nil, err
+	candidates := traeSessionsCandidates()
+	for _, dir := range candidates {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			return dir
 		}
 	}
-	return t.agent.ListModels()
+	if len(candidates) > 0 {
+		return candidates[0]
+	}
+	return ""
 }
 
-func (t *TraeBridge) SetModel(model string) error {
-	model = canonicalTraeModel(model)
-	if model == "" {
-		return fmt.Errorf("model is required")
+// traeSessionsCandidates lists the directories where traecli may have written
+// its session store, most-canonical first. traecli resolves this from the OS
+// cache dir, which `os.UserCacheDir` mirrors: `~/Library/Caches/trae-cli` on
+// macOS, `~/.cache/trae-cli` on Linux, and `%LocalAppData%\trae-cli` on Windows.
+// On Windows we also probe the Roaming AppData tree as a fallback in case the
+// install resolved its data dir there instead.
+func traeSessionsCandidates() []string {
+	var dirs []string
+	add := func(base string) {
+		if base != "" {
+			dirs = append(dirs, filepath.Join(base, "trae-cli", "sessions"))
+		}
 	}
-	t.mu.Lock()
-	sid := t.currentSession
-	cwd := t.cwd
-	t.mu.Unlock()
-	if sid == "" {
-		return fmt.Errorf("no active Trae session to set model")
+	if cache, err := os.UserCacheDir(); err == nil {
+		add(cache)
 	}
-	if err := t.ensureAgentSessionLoaded(sid, cwd); err != nil {
-		return err
+	if runtime.GOOS == "windows" {
+		add(os.Getenv("LOCALAPPDATA"))
+		add(os.Getenv("APPDATA"))
+	} else if home, err := os.UserHomeDir(); err == nil {
+		if runtime.GOOS == "darwin" {
+			add(filepath.Join(home, "Library", "Caches"))
+		} else {
+			add(filepath.Join(home, ".cache"))
+		}
 	}
-	t.agentMu.Lock()
-	err := t.agent.SetModel(sid, model)
-	t.agentMu.Unlock()
+	return dirs
+}
+
+type traeSessionFile struct {
+	ID        string `json:"id"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Metadata  struct {
+		Cwd            string `json:"cwd"`
+		ModelName      string `json:"model_name"`
+		PermissionMode string `json:"permission_mode"`
+		Title          string `json:"title"`
+	} `json:"metadata"`
+}
+
+type traeSessionSummary struct {
+	ID             string
+	Title          string
+	Preview        string
+	Cwd            string
+	Model          string
+	PermissionMode string
+	UpdatedAt      time.Time
+	HasUpdatedAt   bool
+	HasContent     bool
+}
+
+// ListSessions reports historical Trae conversations by reading the Trae CLI's
+// on-disk session store. Unlike the Cursor CLI (which keeps no parseable
+// transcript), traecli writes a `session.json` per conversation, so past
+// sessions can be surfaced for resume via ACP `session/load`.
+func (t *TraeBridge) ListSessions(cwd string) (map[string]interface{}, error) {
+	root := traeSessionsRoot()
+	entries, err := os.ReadDir(root)
 	if err != nil {
-		return err
+		if os.IsNotExist(err) {
+			return map[string]interface{}{"ok": true, "sessions": []map[string]interface{}{}}, nil
+		}
+		return nil, err
 	}
-	t.mu.Lock()
-	t.selectedModel = model
-	t.mu.Unlock()
-	return nil
+
+	sessions := []map[string]interface{}{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		dir := filepath.Join(root, entry.Name())
+		summary, ok := readTraeSessionSummary(dir, entry.Name())
+		if !ok {
+			continue
+		}
+
+		title := strings.TrimSpace(summary.Title)
+		if title == "" {
+			title = summary.ID
+		}
+		preview := strings.TrimSpace(summary.Preview)
+		if preview == "" {
+			preview = title
+		}
+
+		session := map[string]interface{}{
+			"sessionId":      summary.ID,
+			"title":          title,
+			"preview":        preview,
+			"cwd":            summary.Cwd,
+			"model":          summary.Model,
+			"permissionMode": summary.PermissionMode,
+		}
+
+		if summary.HasUpdatedAt {
+			session["updatedAt"] = summary.UpdatedAt.UnixMilli()
+			session["timeAgo"] = humanTimeAgo(summary.UpdatedAt)
+		}
+
+		sessions = append(sessions, session)
+	}
+
+	sort.Slice(sessions, func(i, j int) bool {
+		return int64Value(sessions[i]["updatedAt"]) > int64Value(sessions[j]["updatedAt"])
+	})
+
+	return map[string]interface{}{"ok": true, "sessions": sessions}, nil
 }
 
-// SetConfig stores the desired mode. Model changes must go through SetModel so
-// the UI only reports success after the backend ACP session accepts the change.
-func (t *TraeBridge) SetConfig(model, mode *string) {
-	t.mu.Lock()
-	if mode != nil {
-		t.selectedMode = canonicalTraeMode(*mode)
+func readTraeSessionSummary(dir, fallbackID string) (traeSessionSummary, bool) {
+	summary := traeSessionSummary{ID: fallbackID}
+	sessionPath := filepath.Join(dir, "session.json")
+	if data, err := os.ReadFile(sessionPath); err == nil {
+		var sf traeSessionFile
+		if err := json.Unmarshal(data, &sf); err != nil {
+			log.Printf("[trae.sessionList] parse %s: %v", filepath.Base(dir), err)
+		} else {
+			if sf.ID != "" {
+				summary.ID = sf.ID
+			}
+			summary.HasContent = true
+			summary.Title = strings.TrimSpace(sf.Metadata.Title)
+			summary.Preview = summary.Title
+			summary.Cwd = sf.Metadata.Cwd
+			summary.Model = sf.Metadata.ModelName
+			summary.PermissionMode = sf.Metadata.PermissionMode
+			if updated, ok := parseClaudeTimestamp(sf.UpdatedAt); ok {
+				summary.UpdatedAt = updated
+				summary.HasUpdatedAt = true
+			} else if created, ok := parseClaudeTimestamp(sf.CreatedAt); ok {
+				summary.UpdatedAt = created
+				summary.HasUpdatedAt = true
+			}
+		}
 	}
-	sid := t.currentSession
-	selectedMode := t.selectedMode
-	t.mu.Unlock()
 
-	if sid == "" {
+	mergeTraeEventsSummary(filepath.Join(dir, "events.jsonl"), &summary)
+
+	if !summary.HasUpdatedAt {
+		if info, err := os.Stat(sessionPath); err == nil {
+			summary.UpdatedAt = info.ModTime()
+			summary.HasUpdatedAt = true
+		} else if info, err := os.Stat(filepath.Join(dir, "events.jsonl")); err == nil {
+			summary.UpdatedAt = info.ModTime()
+			summary.HasUpdatedAt = true
+		} else if info, err := os.Stat(filepath.Join(dir, "session.log")); err == nil {
+			summary.UpdatedAt = info.ModTime()
+			summary.HasUpdatedAt = true
+		}
+	}
+
+	return summary, summary.ID != "" && summary.HasContent
+}
+
+func mergeTraeEventsSummary(path string, summary *traeSessionSummary) {
+	file, err := os.Open(path)
+	if err != nil {
 		return
 	}
-	if mode != nil && selectedMode != "" {
-		if err := t.agent.SetMode(sid, selectedMode); err != nil {
-			log.Printf("[trae] setMode failed: %v", err)
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
+	for scanner.Scan() {
+		var event map[string]interface{}
+		if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+			continue
+		}
+		if sid := firstString(event, "session_id", "sessionId"); sid != "" {
+			summary.ID = sid
+		}
+		if ts, ok := parseClaudeTimestamp(firstString(event, "created_at", "createdAt")); ok {
+			if !summary.HasUpdatedAt || ts.After(summary.UpdatedAt) {
+				summary.UpdatedAt = ts
+				summary.HasUpdatedAt = true
+			}
+		}
+		mergeTraeStateUpdate(event, summary)
+		mergeTraeUserInput(event, summary)
+	}
+	if err := scanner.Err(); err != nil {
+		log.Printf("[trae.sessionList] scan %s: %v", path, err)
+	}
+}
+
+func mergeTraeStateUpdate(event map[string]interface{}, summary *traeSessionSummary) {
+	stateUpdate, _ := event["state_update"].(map[string]interface{})
+	updates, _ := stateUpdate["updates"].(map[string]interface{})
+	if len(updates) == 0 {
+		return
+	}
+	if summary.Cwd == "" {
+		summary.Cwd = firstString(updates, "cwd")
+	}
+	if summary.Model == "" {
+		summary.Model = firstString(updates, "model_name", "modelName", "model")
+	}
+	if summary.PermissionMode == "" {
+		summary.PermissionMode = firstString(updates, "permission_mode", "permissionMode")
+	}
+	if summary.Title == "" {
+		summary.Title = firstString(updates, "title")
+		if summary.Title != "" {
+			summary.HasContent = true
 		}
 	}
 }
 
-// Prompt sends a user turn to the active session, creating one if needed. It
-// runs the ACP prompt asynchronously and synthesizes a turn/completed event on
-// completion (ACP itself has no turn lifecycle notifications), matching Cursor.
-func (t *TraeBridge) Prompt(text string, images []string) (string, error) {
-	t.mu.Lock()
-	sid := t.currentSession
-	cwd := t.cwd
-	t.mu.Unlock()
-
-	if sid == "" {
-		newSid, err := t.NewSession(cwd)
-		if err != nil {
-			return "", err
-		}
-		sid = newSid
-	} else if err := t.ensureAgentSessionLoaded(sid, cwd); err != nil {
-		return "", fmt.Errorf("session/load before prompt: %w", err)
+func mergeTraeUserInput(event map[string]interface{}, summary *traeSessionSummary) {
+	if summary.Preview != "" && summary.Title != "" {
+		return
 	}
-	opID := newOperationID("trae")
-
-	t.mu.Lock()
-	t.taskRunning = true
-	t.taskStartedAt = time.Now()
-	t.currentOperationID = opID
-	t.lastNotifications = nil
-	t.mu.Unlock()
-
-	go func() {
-		result, err := t.agent.Prompt(sid, text, images)
-		if err != nil {
-			log.Printf("[trae] session/prompt failed: %v", err)
-			t.emit("error", map[string]interface{}{
-				"error":     err.Error(),
-				"sessionId": sid,
-			})
-		}
-		t.mu.Lock()
-		t.taskRunning = false
-		t.mu.Unlock()
-		t.emit("turn/completed", map[string]interface{}{
-			"sessionId": sid,
-			"success":   err == nil,
-			"result":    result,
-		})
-		t.mu.Lock()
-		t.currentOperationID = ""
-		t.mu.Unlock()
-	}()
-	return opID, nil
-}
-
-func (t *TraeBridge) NewSession(cwd string) (string, error) {
-	if cwd == "" {
-		t.mu.Lock()
-		cwd = t.cwd
-		t.mu.Unlock()
+	message, _ := event["message"].(map[string]interface{})
+	inner, _ := message["message"].(map[string]interface{})
+	if firstString(inner, "role") != "user" {
+		return
 	}
-	if !t.agent.IsRunning() {
-		if err := t.Start(cwd); err != nil {
-			return "", err
-		}
-	} else if cwd != "" {
-		t.SetCwd(cwd)
+	extra, _ := inner["extra"].(map[string]interface{})
+	if original, ok := extra["is_original_user_input"].(bool); ok && !original {
+		return
 	}
-
-	t.mu.Lock()
-	selectedModel := canonicalTraeModel(t.selectedModel)
-	selectedMode := canonicalTraeMode(t.selectedMode)
-	t.mu.Unlock()
-
-	t.agentMu.Lock()
-	result, err := t.agent.NewSession(cwd)
-	t.agentMu.Unlock()
-	if err != nil {
-		return "", fmt.Errorf("session/new: %w", err)
+	content := strings.TrimSpace(firstString(inner, "content"))
+	if content == "" || strings.HasPrefix(content, "<system-reminder>") {
+		return
 	}
-	newSid, _ := result["sessionId"].(string)
-	if newSid == "" {
-		return "", fmt.Errorf("session/new returned no sessionId")
+	if summary.Preview == "" {
+		summary.Preview = content
 	}
-
-	selectedModel = t.effectiveModel(selectedModel)
-	selectedMode = t.effectiveMode(selectedMode)
-
-	t.mu.Lock()
-	t.currentSession = newSid
-	t.selectedModel = selectedModel
-	t.mu.Unlock()
-
-	t.emit("init", map[string]interface{}{
-		"sessionId": newSid,
-		"cwd":       cwd,
-		"config": map[string]interface{}{
-			"model": selectedModel,
-			"mode":  selectedMode,
-		},
-		"capabilities":    t.Capabilities(),
-		"model":           selectedModel,
-		"mode":            selectedMode,
-		"availableModels": agentModelList(t.agent),
-	})
-	return newSid, nil
-}
-
-// LoadSession resumes a session via ACP session/load. Unlike Claude there is no
-// local transcript to rebuild, so `items` is empty and the UI relies on the live
-// ACP stream from the resumed session.
-func (t *TraeBridge) LoadSession(sessionId, cwd string) (map[string]interface{}, error) {
-	if sessionId == "" {
-		return nil, fmt.Errorf("sessionId is required")
+	if summary.Title == "" {
+		summary.Title = content
 	}
-	if cwd == "" {
-		t.mu.Lock()
-		cwd = t.cwd
-		t.mu.Unlock()
-	}
-
-	t.mu.Lock()
-	if t.taskRunning && t.currentSession != "" && t.currentSession != sessionId {
-		runningSession := t.currentSession
-		t.mu.Unlock()
-		return nil, fmt.Errorf("cannot load session %s while session %s is running", sessionId, runningSession)
-	}
-	t.mu.Unlock()
-
-	if err := t.ensureAgentSessionLoaded(sessionId, cwd); err != nil {
-		return nil, fmt.Errorf("session/load: %w", err)
-	}
-
-	t.mu.Lock()
-	t.currentSession = sessionId
-	if cwd != "" {
-		t.cwd = cwd
-	}
-	selectedModel := t.effectiveModel(canonicalTraeModel(t.selectedModel))
-	selectedMode := t.effectiveMode(canonicalTraeMode(t.selectedMode))
-	t.selectedModel = selectedModel
-	t.mu.Unlock()
-
-	availableModels := agentModelList(t.agent)
-	t.emit("init", map[string]interface{}{
-		"sessionId": sessionId,
-		"cwd":       cwd,
-		"config": map[string]interface{}{
-			"model": selectedModel,
-			"mode":  selectedMode,
-		},
-		"capabilities":    t.Capabilities(),
-		"model":           selectedModel,
-		"mode":            selectedMode,
-		"availableModels": availableModels,
-	})
-
-	return map[string]interface{}{
-		"ok": true,
-		"session": map[string]interface{}{
-			"sessionId": sessionId,
-			"cwd":       cwd,
-		},
-		"items": []interface{}{},
-		"config": map[string]interface{}{
-			"model": selectedModel,
-			"mode":  selectedMode,
-		},
-		"capabilities":    t.Capabilities(),
-		"availableModels": availableModels,
-		"agentLoaded":     t.agent.IsSessionLoaded(sessionId),
-	}, nil
-}
-
-func (t *TraeBridge) ensureAgentSessionLoaded(sessionId, cwd string) error {
-	t.agentMu.Lock()
-	defer t.agentMu.Unlock()
-	if !t.agent.IsRunning() {
-		if !t.agent.CheckAvailable() {
-			return fmt.Errorf("%s not found in PATH; install the Trae CLI from https://docs.trae.cn/cli", traeCommand())
-		}
-	}
-	return t.agent.EnsureLoaded(sessionId, cwd)
-}
-
-// ListSessions reports historical Trae conversations. Like the Cursor CLI, Trae
-// exposes no non-interactive "print sessions as JSON" command, so session
-// listing degrades to an empty list: the live session created via ACP
-// (`session/new`) is still tracked and surfaced through taskStatus /
-// notifications, which is what the clients rely on.
-func (t *TraeBridge) ListSessions(cwd string) (map[string]interface{}, error) {
-	return map[string]interface{}{
-		"ok":       true,
-		"sessions": []map[string]interface{}{},
-	}, nil
+	summary.HasContent = true
 }
 
 func (t *TraeBridge) TaskStatus() map[string]interface{} {
